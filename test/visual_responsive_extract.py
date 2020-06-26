@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 import scipy.stats as spstats
 import statsmodels.stats as stats
 import csv
+import os 
+import argparse
 
 pd.options.display.html.table_schema = True
 pd.options.display.max_rows = None
@@ -31,7 +33,6 @@ plt.rcParams.update({'font.size': 17})
 #%% 
 
 # Parameters 
-
 # Subject and task
 subject = 'DiAs'
 subject_id = '04'
@@ -57,7 +58,7 @@ alpha = 0.01 # significance threshold of visual response
 
 # Saving paramerters 
 
-save2 = Path('~','projects','CIFAR','data_fun').expanduser()
+save2 = Path('~','projects','CIFAR','visual_info').expanduser()
 task_save = 'stimuli'
 suffix_place = '_epoch_place.mat'
 suffix_face = '_epoch_face.mat'
@@ -97,7 +98,19 @@ pure_place = list(set(face_chan)-set(place_chan))
 pure_face = list(set(place_chan)-set(face_chan))
 cat = list(set(visual_chan) - set(pure_place))
 cat = list(set(category_selective) -set(pure_face))
-noncat = list(set(visual_chan)-set(face_chan))
+noncat = list(set(visual_chan)-set(face_chan))ime/projects/CIFAR/new_code/test/argparse_test.py', args='--x 4', wdir='/home/guime/projects/CIFAR/new_code/test')
+16
+
+In [27]: runfile('/home/guime/projects/CIFAR/new_code/test/argparse_test.py', args='--x 4', wdir='/home/guime/projects/CIFAR/new_code/test')
+16
+
+In [28]: runfile('/home/guime/projects/CIFAR/new_code/test/argparse_test.py', args='--x 4', wdir='/home/guime/projects/CIFAR/new_code/test')
+16
+
+In [29]: runfile('argparse_test.py', args='--x 5')
+25
+
+In [30]: runfile('argparse_
 noncat = list(set(noncat)-set(place_chan))
 
 # %% Create table
@@ -105,7 +118,7 @@ noncat = list(set(noncat)-set(place_chan))
 visual_elec = {'Subject': [], 'Electrode': [], 'Category':[], 'Cohen': [],
                          'Brodman': []}
 for ichan, chan in enumerate(visual_chan):
-    visual_elec['Subject'].append('DiAs')
+    visual_elec['Subject'].append(subject)
     visual_elec['Electrode'].append(chan)
     if chan in pure_place:
         visual_elec['Category'].append('place')
@@ -124,3 +137,9 @@ for ichan, chan in enumerate(visual_chan):
     else: 
         visual_elec['Brodman'].append(dfelec['Brodman'].loc[dfelec['electrode_name']==chan].iloc[0])
 
+
+df = pd.DataFrame(data = visual_elec)
+df.to_csv(f'{subject}_visual_info.csv', index=False)
+fpath = save2
+fname = f'{subject}_visual_info.csv'
+fpath = fpath.joinpath(fname)
