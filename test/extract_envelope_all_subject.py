@@ -28,7 +28,7 @@ cf_subjects = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'Ne
 tasks = ['stimuli', 'rest_baseline']
 runs = ['1','2']
 
-path_visual = cf_load.visual_path()
+path_visual = cf_load.visual_path() # pick visual channels for all subjects
 df_visual = pd.read_csv(path_visual)
 
 for sub in cf_subjects:

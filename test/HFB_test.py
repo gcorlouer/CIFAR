@@ -59,9 +59,9 @@ def extract_HFB(raw, bands):
 def extract_stim_id(event_id, cat = 'Face'):
     p = re.compile(cat)
     stim_id = []
-    for  key in event_id.keys():
+    for key in event_id.keys():
         if p.match(key):
-            stim_id.append(str(event_id[key]))
+            stim_id.append(key)
     return stim_id 
 
 def epoch_HFB(HFB, raw, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
@@ -86,18 +86,21 @@ def baseline_normalisation(epochs, tmin=-0.4, tmax=-0.1):
         A_norm = np.nan_to_num(A_norm)
     return A_norm 
 
-def dB_transform(A_norm, epochs, events, t_pr=-0.5):
+def dB_transform(A_norm, raw, t_pr=-0.5):
+    events, event_id = mne.events_from_annotations(raw)
     A_db =  np.zeros_like(A_norm) 
-    for i in range(len(epochs)):
-        for j in range(len(epochs.info['ch_names'])):
+    for i in range(np.size(A_db,0)):
+        for j in range(np.size(A_db,1)):
             A_db[i,j,:] = 10*np.log10(A_norm[i,j,:]) # transform into normal distribution
         HFB_db = np.nan_to_num(A_db)
-    HFB_db = mne.EpochsArray(HFB_db, epochs.info, events=events[1:], tmin=t_pr) # Drop boundary event (otherwise event size don't match)
+    del event_id['boundary']
+    HFB_db = mne.EpochsArray(HFB_db, raw.info, events=events[1:], 
+                             event_id=event_id, tmin=t_pr) # Drop boundary event (otherwise event size don't match)
     return HFB_db 
 
-def extract_db(epochs, events, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
+def extract_db(epochs, raw, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
     A_norm = baseline_normalisation(epochs, tmin=-0.4, tmax=-0.1)
-    HFB_db = dB_transform(A_norm, epochs, events,  t_pr)
+    HFB_db = dB_transform(A_norm, raw,  t_pr)
     return HFB_db
 
 def extract_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
@@ -106,7 +109,7 @@ def extract_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
     events, event_id = mne.events_from_annotations(raw)
     epochs = epoch_HFB(HFB, raw, t_pr = t_pr, t_po = t_po, baseline=baseline,
                        preload=preload)
-    HFB_db = extract_db(epochs, events, tmin=tmin, tmax=tmax, t_pr=t_pr)
+    HFB_db = extract_db(epochs, raw, tmin=tmin, tmax=tmax, t_pr=t_pr)
     return HFB_db
 
 def plot_stim_response(HFB_db, stim_id, picks='LTo4'):

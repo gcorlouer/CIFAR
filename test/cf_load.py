@@ -21,7 +21,7 @@ def cf_ieeg_path(home='~'):
 
 def visual_path(home='~'):
     path_visual = cf_ieeg_path()
-    path_visual = path_visual.joinpath('visual_electrodes.csv')
+    path_visual = path_visual.joinpath('visual_electrodes_1.csv')
     return path_visual
 
 def cf_cohort_path(home='~'):
@@ -80,11 +80,11 @@ class Subject:
         dfelec = pd.read_csv(elecfile)
         return dfelec
         
-    def procpath(self, preproc='raw_signal'):
-        """Return data path at some preprocessed stage"""
+    def procpath(self, proc='raw_signal'):
+        """Return data path at some processed stage"""
         subject_path = self.subject_path()
-        preproc_path = subject_path.joinpath('EEGLAB_datasets', preproc)
-        return preproc_path 
+        proc_path = subject_path.joinpath('EEGLAB_datasets', proc)
+        return proc_path 
     
     def dataset(self, suffix=''):
         """Return  dataset name """
@@ -101,8 +101,8 @@ class Subject:
         fname = dataset+ext
         return fname
     
-    def fpath(self, preproc='raw_signal', suffix='', ext='.set'):
-        procpath = self.procpath(preproc)
+    def fpath(self, proc='raw_signal', suffix='', ext='.set'):
+        procpath = self.procpath(proc)
         fname = self.fname(suffix=suffix, ext=ext)
         fpath = procpath.joinpath(fname)
         fpath = os.fspath(fpath)

@@ -11,6 +11,8 @@ import mne
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from pathlib import Path
+
 %matplotlib
 
 plt.rcParams.update({'font.size': 17})
@@ -24,6 +26,8 @@ tmin_pr = -0.5
 tmax_pr = -0.1 
 tmin_po=0.1 
 tmax_po=0.5
+preproc = 'preproc'
+
 
 
 sub_id = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'NeLa', 'SoGi']
@@ -32,7 +36,7 @@ functional_group = {'subject_id': [], 'chan_name':[], 'category': [], 'brodman':
 for sub in sub_id: 
     #%% Import data
     subject = cf_load.Subject(sub)
-    fpath = subject.fpath(suffix='lnrmv')
+    fpath = subject.fpath(suffix='lnrmv', preproc = preproc)
     raw = subject.import_data(fpath)
     dfelec = subject.dfelec()
     
@@ -47,7 +51,7 @@ for sub in sub_id:
     place_id = HFB_test.extract_stim_id(event_id, cat='Place')
     
     # Check test looks ok
-    # HFB_test.plot_stim_response(HFB_db, picks='LTo6', stim_id=face_id)
+   # HFB_test.plot_stim_response(HFB_db, picks='LTo6', stim_id=face_id)
     
     
     # %% Detect face, place and bicat channels
@@ -69,7 +73,7 @@ df_visual = pd.DataFrame(functional_group)
 
 df_visual = df_visual[df_visual.brodman != 'Unknown']
 fpath = Path('~', 'CIFAR_data', 'iEEG_10').expanduser()
-fname = 'visual_electrodes.csv'
+fname = 'visual_electrodes_1.csv'
 fpath = fpath.joinpath(fname)
 df_visual.to_csv(fpath, index= False)
 
