@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # TODO : Change order of chan names for xlabels, try other scale, compare.
+plt.rcParams.update({'font.size': 20})
 
 
 # %% Import data
@@ -29,6 +30,11 @@ t_po = 1.5
 cat = 'Face'
 suffix = 'GC_HFB_visual_epoch_' + cat
 ext = '.mat'
+
+path_visual = cf_load.visual_path()
+df_visual = pd.read_csv(path_visual)
+
+df = df_visual.loc[df_visual['subject_id']==sub]
 
 def GC_cat(sub='DiAs', cat='Face', proc = 'preproc'):
     suffix = 'GC_HFB_visual_epoch_' + cat
