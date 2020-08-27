@@ -98,6 +98,12 @@ def dB_transform(A_norm, raw, t_pr=-0.5):
                              event_id=event_id, tmin=t_pr) # Drop boundary event (otherwise event size don't match)
     return HFB_db 
 
+def log_transform(epochs, picks):
+    # transform into log normal distribution, should also work with raw structure
+    data = epochs.copy().pick(picks=picks).get_data()
+    log_HFB = np.log(data)
+    return log_HFB
+
 def extract_db(epochs, raw, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
     A_norm = baseline_normalisation(epochs, tmin=-0.4, tmax=-0.1)
     HFB_db = dB_transform(A_norm, raw,  t_pr)
