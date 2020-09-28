@@ -65,20 +65,11 @@ HFB_visual = HFB.copy().pick(picks=visual_chans)
 
 HFB_visual = HFB_visual.get_data()
 
-HFB_db_visual = HFB_db.copy().pick(picks=visual_chans).get_data().flatten()
 # Plot histogram 
 
-log_HFB = log_transform(HFB, picks=visual_chans)
 
-
-log_HFB = np.log(HFB_visual).flatten()
 HFB_visual_flat = HFB_visual.flatten()
 
-plt.hist(log_HFB, bins=1000, density=True)
-plt.xscale('linear')
-plt.title('Histogram of visually responsive channel envelope, subject DiAs')
-plt.ylabel('Number of occurence')
-plt.xlabel(' HFB log Amplitude')
 
 plt.hist(HFB_visual_flat, bins=1000, density=True)
 plt.xscale('log')
@@ -98,9 +89,9 @@ def plot_hist(data, bins=1000, density=True, scale='linear'):
 plot_hist(visual_dict['data'].flatten())
 
 #%% 
-     
-skewness = skew(HFB_db_visual)
-Kurtosis = kurtosis(HFB_db_visual)
+HFB_log = np.log(HFB_visual_flat)
+skewness = skew(HFB_log)
+Kurtosis = kurtosis(HFB_log)
 print(f'Skewness is {skewness}' )
 print(f'Kurtosis is {Kurtosis}')
 

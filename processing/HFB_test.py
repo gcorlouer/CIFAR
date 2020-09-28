@@ -257,11 +257,31 @@ def functional_grouping(subject, visual_cat):
         functional_group['DK'].extend(subject.ROI_DK(cat))
     return functional_group
 
+def epoch(HFB, raw, task='stimuli',
+                            cat='Face', duration=5, t_pr = -0.1, t_po = 1.75):
+    # TODO : must depend on wether raw or bipolar
+    if task=='stimuli':
+        events, event_id = mne.events_from_annotations(raw)
+        cat_id = extract_stim_id(event_id, cat = cat)
+        epochs = epoch_HFB(HFB, raw, t_pr = t_pr, t_po = t_po)
+        epochs = epochs[cat_id].copy()
+    else:
+        events = mne.make_fixed_length_events(raw, start=10, stop=200, duration=duration)
+        epochs = mne.Epochs(HFB, events, tmin = t_pr, tmax = t_po, 
+                            baseline=None, preload=True)
+    return epochs   
 
-
-
-
-
+def make_visual_chan_dictionary(df_visual, epochs, sub='DiAs'): 
+   # Return visual channels in dictionary to save in matfile 
+    visual_chan = list(df_visual['chan_name'].loc[df_visual['subject_id']== sub])
+    category = list(df_visual['category'].loc[df_visual['subject_id']== sub])
+    brodman = list(df_visual['brodman'].loc[df_visual['subject_id']== sub])
+    DK = list(df_visual['DK'].loc[df_visual['subject_id']== sub] )
+    data = log_transform(epochs, picks=visual_chan) # make data normal
+    # ch_idx = mne.pick_channels(epochs.info['ch_names'], include=visual_chan)
+    visual_dict = dict(data=data, chan=visual_chan, 
+                   category=category, brodman=brodman, DK = DK)
+    return visual_dict 
 
 
 

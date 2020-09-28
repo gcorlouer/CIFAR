@@ -20,11 +20,12 @@ import pandas as pd
 proc = 'preproc'
 ext2save = '.mat'
 sub = 'DiAs'
-task = 'stimuli'
+task = 'rest_baseline'
 run = '1'
+duration = 10 # Event duration for resting state
 t_pr = -0.1
-t_po = 1.75
-cat = 'Place'
+t_po = 5
+cat = 'Rest'
 suffix2save = 'HFB_visual_epoch_' + cat
 
 # cat_id = extract_stim_id(event_id, cat = cat)
@@ -44,22 +45,14 @@ raw = subject.import_data(fpath)
 bands = HFB_test.freq_bands() # Select Bands of interests 
 HFB = HFB_test.extract_HFB(raw, bands) # Extract HFB
 
-# Epoch category specific envelope
+# Epoch  envelope
 
-def category_specifc_epochs(HFB, category):
-    # TODO : define function
-    events, event_id = mne.events_from_annotations(raw) 
-    cat_id = HFB_test.extract_stim_id(event_id, cat = cat)
-    epochs = HFB_test.epoch_HFB(HFB, raw, t_pr = t_pr, t_po = t_po)
-    epochs = epochs[cat_id].copy()
-    return epochs   
- 
-events, event_id = mne.events_from_annotations(raw) 
-cat_id = HFB_test.extract_stim_id(event_id, cat = cat)
-epochs = HFB_test.epoch_HFB(HFB, raw, t_pr = t_pr, t_po = t_po)
-epochs = epochs[cat_id].copy()
+epochs = HFB_test.epoch(HFB, raw, task=task,
+                            cat=cat, duration=duration, t_pr = t_pr, t_po = t_po)
 
-# %% Downsample to 250 Hz
+
+#%% 
+# Downsample to 250 Hz
 
 epochs = epochs.resample(sfreq=250)
 
@@ -67,30 +60,11 @@ epochs = epochs.resample(sfreq=250)
 
 # Prepare dictionary for GC analysis
 
-def make_visual_chan_dictionary(df_visual, sub='DiAs'): 
-    
-    visual_chan = list(df_visual['chan_name'].loc[df_visual['subject_id']== sub])
-    category = list(df_visual['category'].loc[df_visual['subject_id']== sub])
-    brodman = list(df_visual['brodman'].loc[df_visual['subject_id']== sub])
-    DK = list(df_visual['DK'].loc[df_visual['subject_id']== sub] )
-    data = HFB_test.log_transform(epochs, picks=visual_chan) # make data normal
-    # ch_idx = mne.pick_channels(epochs.info['ch_names'], include=visual_chan)
-    visual_dict = dict(data=data, chan=visual_chan, 
-                   category=category, brodman=brodman, DK = DK)
-    return visual_dict 
+visual_dict = HFB_test.make_visual_chan_dictionary(df_visual, epochs, sub=sub)
 
 # Save data for GC analysis
-
-visual_dict = make_visual_chan_dictionary(df_visual, sub=sub)
 
 fpath2save = subject.fpath(proc = proc, 
                             suffix = suffix2save, ext=ext2save)
 sp.io.savemat(fpath2save, visual_dict)
 
-# %% For continuous time series:
-
-# nepochs = np.size(data, 0)
-# nobs = np.size(data,2)
-# nchan = np.size(data,1)
-# newshape = (nchan, nepochs*nobs)
-# continuous_data = np.reshape(data, newshape)
