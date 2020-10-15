@@ -271,16 +271,19 @@ def epoch(HFB, raw, task='stimuli',
                             baseline=None, preload=True)
     return epochs   
 
-def make_visual_chan_dictionary(df_visual, epochs, sub='DiAs'): 
+def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'): 
    # Return visual channels in dictionary to save in matfile 
+    events, event_id = mne.events_from_annotations(raw)
     visual_chan = list(df_visual['chan_name'].loc[df_visual['subject_id']== sub])
     category = list(df_visual['category'].loc[df_visual['subject_id']== sub])
     brodman = list(df_visual['brodman'].loc[df_visual['subject_id']== sub])
     DK = list(df_visual['DK'].loc[df_visual['subject_id']== sub] )
-    data = log_transform(epochs, picks=visual_chan) # make data normal
+    ts = log_transform(HFB, picks=visual_chan)
+    multitrial_ts = log_transform(epochs, picks=visual_chan) # make data normal
     # ch_idx = mne.pick_channels(epochs.info['ch_names'], include=visual_chan)
-    visual_dict = dict(data=data, chan=visual_chan, 
-                   category=category, brodman=brodman, DK = DK)
+    visual_dict = dict(ts=ts, multitrial_ts=multitrial_ts, chan=visual_chan, 
+                   category=category, brodman=brodman, DK = DK, events=events,
+                   event_id = event_id)
     return visual_dict 
 
 
