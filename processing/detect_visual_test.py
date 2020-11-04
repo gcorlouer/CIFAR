@@ -6,7 +6,7 @@ Created on Mon Jun 29 12:02:51 2020
 @author: guime
 """
 import cf_load
-import HFB_test
+import HFB_process
 import mne
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -43,21 +43,21 @@ for sub in sub_id:
     
     # %% Extract HFB
     
-    bands = HFB_test.freq_bands() # Select Bands of interests 
-    HFB_db = HFB_test.extract_HFB_db(raw, bands)
+    bands = HFB_process.freq_bands() # Select Bands of interests 
+    HFB_db = HFB_process.extract_HFB_db(raw, bands)
     
     # place and face id
     events, event_id = mne.events_from_annotations(raw)
-    face_id = HFB_test.extract_stim_id(event_id)
-    place_id = HFB_test.extract_stim_id(event_id, cat='Place')
+    face_id = HFB_process.extract_stim_id(event_id)
+    place_id = HFB_process.extract_stim_id(event_id, cat='Place')
     
     # Check test looks ok
-   # HFB_test.plot_stim_response(HFB_db, picks='LTo6', stim_id=face_id)
+   # HFB_process.plot_stim_response(HFB_db, picks='LTo6', stim_id=face_id)
     
     
     # %% Detect face, place and bicat channels
     
-    visual = HFB_test.make_visual_cat(HFB_db, face_id, place_id)
+    visual = HFB_process.make_visual_cat(HFB_db, face_id, place_id)
     
     # %% Dictionary
     

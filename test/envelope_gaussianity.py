@@ -29,7 +29,7 @@ plt.rcParams.update({'font.size': 30})
 # %% Parameters
 proc = 'preproc'
 ext2save = '.mat'
-sub = 'DiAs'
+sub = 'AnRa'
 task = 'stimuli'
 run = '1'
 t_pr = -0.1

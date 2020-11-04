@@ -6,7 +6,7 @@ Created on Wed Jul  8 10:12:47 2020
 @author: guime
 """
 import cf_load
-import HFB_test
+import HFB_process
 import mne
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -15,7 +15,7 @@ import scipy as sp
 
 from pathlib import Path
 
-%matplotlib
+# %matplotlib
 
 plt.rcParams.update({'font.size': 34})
 
@@ -53,14 +53,14 @@ for sub in sub_id:
     face_chan = list(df_visual['chan_name'].loc[df_visual['subject_id']==sub].loc[df_visual['category']=='Face'])
     place_chan = list(df_visual['chan_name'].loc[df_visual['subject_id']==sub].loc[df_visual['category']=='Place'])
     
-    bands = HFB_test.freq_bands() # Select Bands of interests 
-    HFB_db = HFB_test.extract_HFB_db(raw, bands)
+    bands = HFB_process.freq_bands() # Select Bands of interests 
+    HFB_db = HFB_process.extract_HFB_db(raw, bands)
     HFB_db = HFB_db.drop_channels(ch_names = 'TRIG')
     time = HFB_db.times
     # place and face id
     events, event_id = mne.events_from_annotations(raw)
-    face_id = HFB_test.extract_stim_id(event_id)
-    place_id = HFB_test.extract_stim_id(event_id, cat='Place')
+    face_id = HFB_process.extract_stim_id(event_id)
+    place_id = HFB_process.extract_stim_id(event_id, cat='Place')
     
     if face_chan == []: 
         HFB_face = np.empty(shape =( nepochs, 0, nobs))
@@ -110,15 +110,15 @@ HFB_SE_npref = sp.stats.sem(HFB_new_npref, 0)
 
 
 # %%
-plt.plot(time, HFB_average_pref, label='Prefered stimulus')
+plt.plot(time, HFB_average_pref, 'k', label='Prefered category')
 plt.fill_between(time, HFB_average_pref-1.96*HFB_SE_pref, HFB_average_pref+1.96*HFB_SE_pref,
-                         alpha=0.3)
-plt.plot(time, HFB_average_npref, label= 'Non preferred stimulus')
+                       color='black', alpha=0.3)
+plt.plot(time, HFB_average_npref, 'r', label= 'Non preferred category')
 plt.fill_between(time, HFB_average_npref-1.96*HFB_SE_npref, HFB_average_npref+1.96*HFB_SE_npref,
-                         alpha=0.3)
+                       color='red',  alpha=0.3)
 plt.axhline(y=0)
 plt.axvline(x=0)
 plt.legend()
-plt.title('Grand average of categroy selective HFB channels amplitude, n=71')
+plt.title('Grand average of HFB amplitude of categroy selective channels, n=71')
 plt.xlabel('Time from stimulus onset (s)')
 plt.ylabel('Amplitude (dB)')

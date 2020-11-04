@@ -70,14 +70,14 @@ def epoch_HFB(HFB, raw, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
                     tmax=t_po, baseline=baseline,preload=preload)
     return epochs
 
-def extract_baseline(epochs, tmin=-0.4, tmax=-0.1):
+def extract_prestim_baseline(epochs, tmin=-0.4, tmax=-0.1):
     baseline = epochs.copy().crop(tmin=tmin, tmax=tmax) # Extract prestimulus baseline
     baseline = baseline.get_data()
     baseline = spstats.mstats.gmean(baseline,axis=2)
     return baseline 
 
 def baseline_normalisation(epochs, tmin=-0.4, tmax=-0.1):
-    baseline = extract_baseline(epochs, tmin=tmin, tmax=tmax)
+    baseline = extract_prestim_baseline(epochs, tmin=tmin, tmax=tmax)
     A = epochs.get_data()
     A_norm = np.zeros_like(A)
     for i in range(len(epochs)):
@@ -86,7 +86,7 @@ def baseline_normalisation(epochs, tmin=-0.4, tmax=-0.1):
         A_norm = np.nan_to_num(A_norm)
     return A_norm 
 
-def dB_transform(A_norm, raw, t_pr=-0.5):
+def dB_transform_amplitude(A_norm, raw, t_pr=-0.5):
     events, event_id = mne.events_from_annotations(raw)
     A_db =  np.zeros_like(A_norm) 
     for i in range(np.size(A_db,0)):
@@ -104,21 +104,21 @@ def log_transform(epochs, picks):
     log_HFB = np.log(data)
     return log_HFB
 
-def extract_db(epochs, raw, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
+def epochs_to_HFB_db(epochs, raw, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
     A_norm = baseline_normalisation(epochs, tmin=-0.4, tmax=-0.1)
-    HFB_db = dB_transform(A_norm, raw,  t_pr)
+    HFB_db = dB_transform_amplitude(A_norm, raw,  t_pr)
     return HFB_db
 
-def extract_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
+def raw_to_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
                        preload=True, tmin=-0.4, tmax=-0.1):
     HFB = extract_HFB(raw, bands)
     events, event_id = mne.events_from_annotations(raw)
     epochs = epoch_HFB(HFB, raw, t_pr = t_pr, t_po = t_po, baseline=baseline,
                        preload=preload)
-    HFB_db = extract_db(epochs, raw, tmin=tmin, tmax=tmax, t_pr=t_pr)
+    HFB_db = epochs_to_HFB_db(epochs, raw, tmin=tmin, tmax=tmax, t_pr=t_pr)
     return HFB_db
 
-def plot_stim_response(HFB_db, stim_id, picks='LTo4'):
+def plot_HFB_response(HFB_db, stim_id, picks='LTo4'):
         evok = HFB_db[stim_id].copy().pick(picks).average()
         evok_std = HFB_db[stim_id].copy().pick(picks).standard_error()
         ERP = evok.data
@@ -173,7 +173,7 @@ def cf_cohen(M1, M2):
     return cohen 
 
 def return_visual_chan(reject, HFB_db, cohen):
-    """Return statistically significant visual channels with effect size"""
+    """Used in detect_visual_chan function"""
     idx = np.where(reject==True)
     idx = idx[0]
     visual_chan = []
@@ -183,7 +183,7 @@ def return_visual_chan(reject, HFB_db, cohen):
         visual_cohen.append(np.abs(cohen[i]))
     return visual_chan, visual_cohen
 
-def detect_visual_chan(HFB_db, tmin_pr=-0.5, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5):
+def detect_visual_chan(HFB_db, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5):
     """Return statistically significant visual channels with effect size"""
     A_pr = crop_HFB(HFB_db, tmin=tmin_pr, tmax=tmax_pr)
     A_po = crop_HFB(HFB_db, tmin=tmin_po, tmax=tmax_po)
@@ -194,7 +194,7 @@ def detect_visual_chan(HFB_db, tmin_pr=-0.5, tmax_pr=-0.1, tmin_po=0.1, tmax_po=
     visual_chan, visual_cohen = return_visual_chan(reject, HFB_db, cohen)
     return visual_chan, visual_cohen
 
-def detect_stim_chan(HFB_db, stim_id, tmin_pr=-0.5, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5):
+def detect_stim_chan(HFB_db, stim_id, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5):
     """Return statistically significant stim channels with effect size"""
     A_pr = crop_stim_HFB(HFB_db, stim_id, tmin=tmin_pr, tmax=tmax_pr)
     A_po = crop_stim_HFB(HFB_db, stim_id, tmin=tmin_po, tmax=tmax_po)
@@ -280,6 +280,7 @@ def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'):
     DK = list(df_visual['DK'].loc[df_visual['subject_id']== sub] )
     ts = log_transform(HFB, picks=visual_chan)
     multitrial_ts = log_transform(epochs, picks=visual_chan) # make data normal
+    #multitrial_ts = np.exp(multitrial_ts)
     # ch_idx = mne.pick_channels(epochs.info['ch_names'], include=visual_chan)
     visual_dict = dict(ts=ts, multitrial_ts=multitrial_ts, chan=visual_chan, 
                    category=category, brodman=brodman, DK = DK, events=events,
