@@ -157,7 +157,7 @@ def stats_visual(A_pr, A_po, HFB_db, alpha=0.01):
         tstat[i], pval[i] = spstats.wilcoxon(M1[:,i], M2[:,i], zero_method='zsplit') # Non normal distrib 
     # Correct for multiple testing    
     reject, pval_correct = fdrcorrection(pval, alpha=alpha)
-    return reject, pval_correct
+    return reject, pval_correct, tstat
 
 
 def cf_cohen(M1, M2):
@@ -172,27 +172,22 @@ def cf_cohen(M1, M2):
     cohen = np.divide(MC1-MC2, std)
     return cohen 
 
-def return_visual_chan(reject, HFB_db, cohen):
+def return_visual_chan(reject, HFB_db):
     """Used in detect_visual_chan function"""
     idx = np.where(reject==True)
     idx = idx[0]
     visual_chan = []
-    visual_cohen = []
     for i in list(idx):
         visual_chan.append(HFB_db.info['ch_names'][i])
-        visual_cohen.append(np.abs(cohen[i]))
-    return visual_chan, visual_cohen
+    return visual_chan
 
 def detect_visual_chan(HFB_db, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5):
     """Return statistically significant visual channels with effect size"""
     A_pr = crop_HFB(HFB_db, tmin=tmin_pr, tmax=tmax_pr)
     A_po = crop_HFB(HFB_db, tmin=tmin_po, tmax=tmax_po)
-    M1 = cf_mean(A_pr)
-    M2 = cf_mean(A_po)
-    reject, pval_correct = stats_visual(A_pr, A_po, HFB_db, alpha=0.01)
-    cohen = cf_cohen(M1, M2)
-    visual_chan, visual_cohen = return_visual_chan(reject, HFB_db, cohen)
-    return visual_chan, visual_cohen
+    reject, pval_correct, tstat = stats_visual(A_pr, A_po, HFB_db, alpha=0.01)
+    visual_chan = return_visual_chan(reject, HFB_db)
+    return visual_chan, tstat
 
 def detect_stim_chan(HFB_db, stim_id, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5):
     """Return statistically significant stim channels with effect size"""
@@ -205,46 +200,71 @@ def detect_stim_chan(HFB_db, stim_id, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, t
     visual_chan, visual_cohen = return_visual_chan(reject, HFB_db, cohen)
     return visual_chan, visual_cohen
 
-def detect_pure_face(place_chan, face_chan):
-    pure_face = list(set(face_chan)-set(place_chan))
-    return pure_face
+def compute_latency(visual_HFB, image_id, visual_channels):
+    """Compute latency response of visual challens"""
+    A_po = crop_stim_HFB(visual_HFB, image_id, tmin=0, tmax=1.5)
+    A_pr = crop_stim_HFB(visual_HFB, image_id, tmin=-0.4, tmax=-0.1)
+    A_baseline = cf_mean(A_pr)
+    
+    latency_response = [0]*len(visual_channels)
+    
+    for i in range(0, len(visual_channels)):
+        for t in range(0,np.size(A_po,2)):
+            tstat = spstats.ttest_rel(A_po[:,i,t], A_baseline[:,i])
+            pval = tstat[1]
+            if pval <= 0.05:
+                latency_response[i]=t/500*1e3 # return latency in ms
+                break 
+            else:
+                continue
+    return latency_response
 
-def detect_pure_place(place_chan, face_chan):
-    pure_place = list(set(place_chan)-set(face_chan))
-    return pure_place
+def classify_retinotopic(latency_response, visual_channels, dfelec, latency_threshold=180):
+    """Return retinotopic areas V1 and V2"""
+    group = ['other']*len(visual_channels)
+    for idx, channel in enumerate(visual_channels):
+        if latency_response[idx] <= latency_threshold:
+            brodman = dfelec['Brodman'].loc[dfelec['electrode_name']==channel]
+            brodman = brodman.to_string(index=False)
+            if brodman ==' V1':
+                group[idx]='V1'
+            elif brodman==' V2':
+                group[idx]='V2'
+            else:
+                continue 
+        else:
+               continue
+    return group
 
-def detect_bicat(visual_chan, face_chan, place_chan):
-    pure_face = detect_pure_face(place_chan, face_chan)
-    pure_place = detect_pure_place(place_chan, face_chan)
-    place = list(set(visual_chan)-set(pure_face))
-    bicat = list(set(place)-set(pure_place))
-    return bicat
-
-def HFB2face(HFB_db, face_id, place_id):
-    face_chan, face_cohen = detect_stim_chan(HFB_db, face_id)
-    place_chan, place_cohen = detect_stim_chan(HFB_db, place_id)
-    pure_face = detect_pure_face(place_chan, face_chan)
-    return pure_face
-
-def HFB2place(HFB_db, face_id, place_id):
-    face_chan, face_cohen = detect_stim_chan(HFB_db, face_id)
-    place_chan, place_cohen = detect_stim_chan(HFB_db, place_id)
-    pure_place = detect_pure_place(place_chan, face_chan)
-    return pure_place
-
-def HFB2bicat(HFB_db, face_id, place_id):
-    face_chan, face_cohen = detect_stim_chan(HFB_db, face_id)
-    place_chan, place_cohen = detect_stim_chan(HFB_db, place_id)
-    visual_chan, visual_cohen = detect_visual_chan(HFB_db)
-    bicat = detect_bicat(visual_chan, face_chan, place_chan)
-    return bicat
-
-def make_visual_cat(HFB_db, face_id, place_id):
-    face = HFB2face(HFB_db, face_id, place_id)
-    place = HFB2place(HFB_db, face_id, place_id)
-    bicat = HFB2bicat(HFB_db, face_id, place_id)
-    visual_cat = {'Face' : face, 'Place': place, 'Bicat': bicat}
-    return visual_cat
+def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, group, alpha=0.05):
+    A_face = crop_stim_HFB(visual_HFB, face_id, tmin=0.1, tmax=0.5)
+    A_place = crop_stim_HFB(visual_HFB, place_id, tmin=0.1, tmax=0.5)
+    
+    A_face = np.mean(A_face, 2)
+    A_place = np.mean(A_place,2)
+    
+    tstat = [0]*len(visual_channels)
+    pval = [0]*len(visual_channels)
+    
+    for i in range(np.size(A_face,1)):
+        tstat[i], pval[i] = spstats.ttest_rel(A_face[:,i], A_place[:,i])
+    reject, pval_correct = fdrcorrection(pval, alpha=alpha)
+    
+    # Significant electrodes located outside of V1 and V2 that are Face and Place responsive
+    for idx, channel in enumerate(visual_channels):
+        if reject[idx]==False:
+            continue
+        else:
+            if group[idx]=='V1':
+                continue
+            elif group[idx]=='V2':
+                continue
+            else:
+                if tstat[idx]>0:
+                   group[idx] = 'Face'
+                else:
+                   group[idx] = 'Place'
+    return group, tstat
 
 def functional_grouping(subject, visual_cat):
     functional_group = {'subject_id': [], 'chan_name': [], 'category': [], 'brodman': []}
