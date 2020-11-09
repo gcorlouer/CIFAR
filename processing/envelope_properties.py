@@ -75,7 +75,7 @@ events = mne.events_from_annotations(raw)
 events_sample_stamp = events[0][:,0]
 events_time_stamp = events_sample_stamp/sfreq
 
-#%% Envelope of a representative visual channel
+#%% Envelope of a representative visual channel during 2 stimulus
 
 raw_band = raw.copy().pick_channels(['LTo6']).filter(l_freq=l_freq, h_freq=l_freq+band_size, 
                                  phase=phase, filter_length='auto',
@@ -93,37 +93,4 @@ plt.plot(time,X[0])
 plt.plot(time,envelope[0])
 
 
-#%% Detect visual channels 
-bands = HFB_process.freq_bands() # Select Bands of interests 
-HFB_db = HFB_process.raw_to_HFB_db(raw, bands)
-
-events, event_id = mne.events_from_annotations(raw)
-face_id = HFB_process.extract_stim_id(event_id)
-place_id = HFB_process.extract_stim_id(event_id, cat='Place')
-image_id = face_id+place_id
-
-visual_channels, tstat = HFB_process.detect_visual_chan(HFB_db, tmin_pr=-0.4, 
-                                                           tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5)
-
-#%% Plot HFB of one representative visual channel
-
-channel = 'LTo6'
-visual_HFB = HFB_db.copy().pick_channels(visual_channels)
-
-HFB_process.plot_HFB_response(HFB_db, image_id, picks=channel)
-# %% Compute latency response
-
-latency_response = HFB_process.compute_latency(visual_HFB, image_id, visual_channels)
-
-#%% classify V1 and V2 channels
-
-dfelec = subject.df_electrodes_info()
-latency_threshold = 180
-
-group = HFB_process.classify_retinotopic(latency_response, visual_channels, 
-                                         dfelec, latency_threshold=latency_threshold)
-# %% classify Face and Place selective electrodes
-
-group = HFB_process.classify_Face_Place(visual_HFB, face_id, place_id, 
-                            visual_channels, group, alpha=0.05);
-
+#%% 

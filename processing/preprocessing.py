@@ -63,7 +63,7 @@ for sub in subjects:
             
             raw_preproc = mne.io.RawArray(X, raw_drop_bads.info)
             raw_preproc.set_annotations(raw_drop_bads.annotations) # Annotate new raw structure
-            
+            #raw_preproc = raw_drop_bads # uncomment if only want to remove bads channels
             #%%
             
             #raw_drop_bads.plot(duration=130, n_channels= 30, scalings = 1e-4) 

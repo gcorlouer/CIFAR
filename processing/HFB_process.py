@@ -73,16 +73,16 @@ def epoch_HFB(HFB, raw, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
 def extract_prestim_baseline(epochs, tmin=-0.4, tmax=-0.1):
     baseline = epochs.copy().crop(tmin=tmin, tmax=tmax) # Extract prestimulus baseline
     baseline = baseline.get_data()
-    baseline = spstats.mstats.gmean(baseline,axis=2)
+    baseline = np.mean(baseline,axis=2) # average baseline over prestimulus
+    baseline = spstats.mstats.gmean(baseline,axis=0) # geometric mean accross trials
     return baseline 
 
 def baseline_normalisation(epochs, tmin=-0.4, tmax=-0.1):
     baseline = extract_prestim_baseline(epochs, tmin=tmin, tmax=tmax)
     A = epochs.get_data()
     A_norm = np.zeros_like(A)
-    for i in range(len(epochs)):
-        for j in range(len(epochs.info['ch_names'])):
-            A_norm[i,j,:] = np.divide(A[i,j,:], baseline[i,j])# divide by baseline
+    for i in range(len(epochs.info['ch_names'])):
+        A_norm[:,i,:] = np.divide(A[:,i,:], baseline[i])# divide by baseline
         A_norm = np.nan_to_num(A_norm)
     return A_norm 
 
@@ -128,154 +128,6 @@ def plot_HFB_response(HFB_db, stim_id, picks='LTo4'):
         plt.fill_between(time, ERP[0,:]-1.96*ERP_std[0,:], ERP[0,:]+1.96*ERP_std[0,:],
                          alpha=0.3)
 
-#%% Detect visual electrodes
-
-def cf_mean(A):
-    M = np.mean(A,axis=2)
-    # Get rid of infinity 
-    M[M==-inf] = 0
-    return M
-
-def crop_HFB(HFB_db, tmin=-0.5, tmax=-0.05):
-    A = HFB_db.copy().crop(tmin=tmin, tmax=tmax).get_data()
-    return A
-
-def crop_stim_HFB(HFB_db, stim_id, tmin=-0.5, tmax=-0.05):
-    A = HFB_db[stim_id].copy().crop(tmin=tmin, tmax=tmax).get_data()
-    return A
-
-def stats_visual(A_pr, A_po, HFB_db, alpha=0.01):
-    # maybe HFB_db variablenot necessary
-    """Wilcoxon test for visual responsivity"""
-    M1 = cf_mean(A_pr)
-    M2 = cf_mean(A_po)
-    # Iniitialise inflated p values
-    pval = [0]*len(HFB_db.info['ch_names'])
-    tstat = [0]*len(HFB_db.info['ch_names'])
-    # Compute inflated stats
-    for i in range(0,len(HFB_db.info['ch_names'])):
-        tstat[i], pval[i] = spstats.wilcoxon(M1[:,i], M2[:,i], zero_method='zsplit') # Non normal distrib 
-    # Correct for multiple testing    
-    reject, pval_correct = fdrcorrection(pval, alpha=alpha)
-    return reject, pval_correct, tstat
-
-
-def cf_cohen(M1, M2):
-    """Compute effect size: Cohen d """
-    MC1 = np.mean(M1, axis=0)
-    MC2 = np.mean(M2, axis=0)
-    std1 = np.std(M1, axis=0)
-    std2 = np.std(M2, axis=0)
-    n1 = M1.shape[1]
-    n2 = M2.shape[1]
-    std = np.sqrt(np.divide((n1-1)*std1**2+(n2-1)*std2**2,(n1+n2-2)))
-    cohen = np.divide(MC1-MC2, std)
-    return cohen 
-
-def return_visual_chan(reject, HFB_db):
-    """Used in detect_visual_chan function"""
-    idx = np.where(reject==True)
-    idx = idx[0]
-    visual_chan = []
-    for i in list(idx):
-        visual_chan.append(HFB_db.info['ch_names'][i])
-    return visual_chan
-
-def detect_visual_chan(HFB_db, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5):
-    """Return statistically significant visual channels with effect size"""
-    A_pr = crop_HFB(HFB_db, tmin=tmin_pr, tmax=tmax_pr)
-    A_po = crop_HFB(HFB_db, tmin=tmin_po, tmax=tmax_po)
-    reject, pval_correct, tstat = stats_visual(A_pr, A_po, HFB_db, alpha=0.01)
-    visual_chan = return_visual_chan(reject, HFB_db)
-    return visual_chan, tstat
-
-def detect_stim_chan(HFB_db, stim_id, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5):
-    """Return statistically significant stim channels with effect size"""
-    A_pr = crop_stim_HFB(HFB_db, stim_id, tmin=tmin_pr, tmax=tmax_pr)
-    A_po = crop_stim_HFB(HFB_db, stim_id, tmin=tmin_po, tmax=tmax_po)
-    M1 = cf_mean(A_pr)
-    M2 = cf_mean(A_po)
-    reject, pval_correct = stats_visual(A_pr, A_po, HFB_db, alpha=0.01)
-    cohen = cf_cohen(M1, M2)
-    visual_chan, visual_cohen = return_visual_chan(reject, HFB_db, cohen)
-    return visual_chan, visual_cohen
-
-def compute_latency(visual_HFB, image_id, visual_channels):
-    """Compute latency response of visual challens"""
-    A_po = crop_stim_HFB(visual_HFB, image_id, tmin=0, tmax=1.5)
-    A_pr = crop_stim_HFB(visual_HFB, image_id, tmin=-0.4, tmax=-0.1)
-    A_baseline = cf_mean(A_pr)
-    
-    latency_response = [0]*len(visual_channels)
-    
-    for i in range(0, len(visual_channels)):
-        for t in range(0,np.size(A_po,2)):
-            tstat = spstats.ttest_rel(A_po[:,i,t], A_baseline[:,i])
-            pval = tstat[1]
-            if pval <= 0.05:
-                latency_response[i]=t/500*1e3 # return latency in ms
-                break 
-            else:
-                continue
-    return latency_response
-
-def classify_retinotopic(latency_response, visual_channels, dfelec, latency_threshold=180):
-    """Return retinotopic areas V1 and V2"""
-    group = ['other']*len(visual_channels)
-    for idx, channel in enumerate(visual_channels):
-        if latency_response[idx] <= latency_threshold:
-            brodman = dfelec['Brodman'].loc[dfelec['electrode_name']==channel]
-            brodman = brodman.to_string(index=False)
-            if brodman ==' V1':
-                group[idx]='V1'
-            elif brodman==' V2':
-                group[idx]='V2'
-            else:
-                continue 
-        else:
-               continue
-    return group
-
-def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, group, alpha=0.05):
-    A_face = crop_stim_HFB(visual_HFB, face_id, tmin=0.1, tmax=0.5)
-    A_place = crop_stim_HFB(visual_HFB, place_id, tmin=0.1, tmax=0.5)
-    
-    A_face = np.mean(A_face, 2)
-    A_place = np.mean(A_place,2)
-    
-    tstat = [0]*len(visual_channels)
-    pval = [0]*len(visual_channels)
-    
-    for i in range(np.size(A_face,1)):
-        tstat[i], pval[i] = spstats.ttest_rel(A_face[:,i], A_place[:,i])
-    reject, pval_correct = fdrcorrection(pval, alpha=alpha)
-    
-    # Significant electrodes located outside of V1 and V2 that are Face and Place responsive
-    for idx, channel in enumerate(visual_channels):
-        if reject[idx]==False:
-            continue
-        else:
-            if group[idx]=='V1':
-                continue
-            elif group[idx]=='V2':
-                continue
-            else:
-                if tstat[idx]>0:
-                   group[idx] = 'Face'
-                else:
-                   group[idx] = 'Place'
-    return group, tstat
-
-def functional_grouping(subject, visual_cat):
-    functional_group = {'subject_id': [], 'chan_name': [], 'category': [], 'brodman': []}
-    for key in visual_cat.keys():
-        cat = visual_cat[key]
-        functional_group['subject_id'].extend([subject.name]*len(cat))
-        functional_group['chan_name'] = cat
-        functional_group['category'].extend([key]*len(cat))
-        functional_group['brodman'].extend(subject.ROIs(cat))
-        functional_group['DK'].extend(subject.ROI_DK(cat))
-    return functional_group
 
 def epoch(HFB, raw, task='stimuli',
                             cat='Face', duration=5, t_pr = -0.1, t_po = 1.75):
@@ -290,6 +142,167 @@ def epoch(HFB, raw, task='stimuli',
         epochs = mne.Epochs(HFB, events, tmin = t_pr, tmax = t_po, 
                             baseline=None, preload=True)
     return epochs   
+
+#%% Detect visual electrodes specific functions
+
+def sample_mean(A):
+    M = np.mean(A,axis=2) # average over sample
+    # Get rid of infinity 
+    M[M==-inf] = 0
+    return M
+
+def crop_HFB(HFB_db, tmin=-0.5, tmax=-0.05):
+    A = HFB_db.copy().crop(tmin=tmin, tmax=tmax).get_data()
+    return A
+
+def crop_stim_HFB(HFB_db, stim_id, tmin=-0.5, tmax=-0.05):
+    A = HFB_db[stim_id].copy().crop(tmin=tmin, tmax=tmax).get_data()
+    return A
+
+def multiple_wilcoxon_test(A_pr, A_po, nchans, alpha=0.01):
+    # maybe HFB_db variablenot necessary
+    """Wilcoxon test for visual responsivity"""
+    A_po = sample_mean(A_po)
+    A_pr = sample_mean(A_pr)
+    # Iniitialise inflated p values
+    pval = [0]*nchans
+    tstat = [0]*nchans
+    # Compute inflated stats
+    for i in range(0,nchans):
+        tstat[i], pval[i] = spstats.wilcoxon(A_po[:,i], A_pr[:,i], zero_method='zsplit') # Non normal distrib 
+    # Correct for multiple testing    
+    reject, pval_correct = fdrcorrection(pval, alpha=alpha)
+    w_test = reject, pval_correct, tstat
+    return w_test
+
+def significant_chan(reject, HFB_db):
+    """Used in detect_visual_chan function"""
+    idx = np.where(reject==True)
+    idx = idx[0]
+    visual_chan = []
+    for i in list(idx):
+        visual_chan.append(HFB_db.info['ch_names'][i])
+    return visual_chan
+
+def detect_visual_chan(HFB_db, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5):
+    """Return statistically significant visual channels with effect size"""
+    A_pr = crop_HFB(HFB_db, tmin=tmin_pr, tmax=tmax_pr)
+    A_po = crop_HFB(HFB_db, tmin=tmin_po, tmax=tmax_po)
+    nchans = len(HFB_db.info['ch_names'])
+    w_test = multiple_wilcoxon_test(A_pr, A_po, nchans, alpha=0.01)
+    reject = w_test[0]
+    w_size = w_test[2]
+    visual_chan = significant_chan(reject, HFB_db)
+    return visual_chan, w_size
+
+def compute_latency(visual_HFB, image_id, visual_channels):
+    """Compute latency response of visual challens"""
+    A_po = crop_stim_HFB(visual_HFB, image_id, tmin=0, tmax=1.5)
+    A_pr = crop_stim_HFB(visual_HFB, image_id, tmin=-0.4, tmax=-0.1)
+    A_baseline = sample_mean(A_pr)
+    
+    latency_response = [0]*len(visual_channels)
+    
+    for i in range(0, len(visual_channels)):
+        for t in range(0,np.size(A_po,2)):
+            tstat = spstats.ttest_rel(A_po[:,i,t], A_baseline[:,i])
+            pval = tstat[1]
+            if pval <= 0.05:
+                latency_response[i]=t/500*1e3 # break loop over samples when null is rejected convert to s
+                break 
+            else:
+                continue
+    return latency_response
+
+def classify_retinotopic(latency_response, visual_channels, dfelec, latency_threshold=180):
+    """Return retinotopic areas V1 and V2"""
+    group = ['other']*len(visual_channels)
+    for idx, channel in enumerate(visual_channels):
+        brodman = dfelec['Brodman'].loc[dfelec['electrode_name']==channel]
+        brodman = brodman.to_string(index=False)
+        if brodman ==' V1' and latency_response[idx] <= latency_threshold :
+            group[idx]='V1'
+        elif brodman==' V2' and latency_response[idx] <= latency_threshold:
+            group[idx]='V2'
+        else:
+            continue 
+    return group
+
+def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, group, alpha=0.05):
+    A_face = crop_stim_HFB(visual_HFB, face_id, tmin=0.1, tmax=0.5)
+    A_place = crop_stim_HFB(visual_HFB, place_id, tmin=0.1, tmax=0.5)
+    
+    n_visuals = len(visual_HFB.info['ch_names'])
+    w_test = multiple_wilcoxon_test(A_face, A_place, n_visuals, alpha=0.01)
+    reject = w_test[0]
+    w_size = w_test[2]
+    
+    # Significant electrodes located outside of V1 and V2 are Face or Place responsive
+    for idx, channel in enumerate(visual_channels):
+        if reject[idx]==False:
+            continue
+        else:
+            if group[idx]=='V1':
+                continue
+            elif group[idx]=='V2':
+                continue
+            else:
+                if w_size[idx]>0:
+                   group[idx] = 'Face'
+                else:
+                   group[idx] = 'Place'
+    return group, w_size
+
+# %% Group functions
+
+def raw_to_visual_populations(raw, bands, dfelec,latency_threshold=160):
+    
+    # Extract and normalise HFB
+    HFB_db = raw_to_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
+                       preload=True, tmin=-0.4, tmax=-0.1)
+    events, event_id = mne.events_from_annotations(raw)
+    face_id = extract_stim_id(event_id)
+    place_id = extract_stim_id(event_id, cat='Place')
+    image_id = face_id+place_id
+    
+    # Detect visual channels
+    visual_chan = detect_visual_chan(HFB_db, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5)
+    visual_chan = visual_chan[0]
+    visual_HFB = HFB_db.copy().pick_channels(visual_chan)
+    
+    # Compute latency response
+    latency_response = compute_latency(visual_HFB, image_id, visual_chan)
+    
+    # Classify V1 and V2 populations
+    group = classify_retinotopic(latency_response, visual_chan, 
+                                             dfelec, latency_threshold=latency_threshold)
+    # Classify Face and Place populations
+    group, w_size = classify_Face_Place(visual_HFB, face_id, place_id, visual_chan, group, alpha=0.05)
+    
+    # Create visual_populations dictionary 
+    visual_populations = {'chan_name': [], 'group': [], 'latency': [], 
+                          'effect_size':[], 'brodman': [], 'DK': []}
+    
+    visual_populations['chan_name'] = visual_chan
+    visual_populations['group'] = group
+    visual_populations['latency'] = latency_response
+    visual_populations['effect_size'] = w_size
+    for chan in visual_chan:
+        visual_populations['brodman'].extend(dfelec['Brodman'].loc[dfelec['electrode_name']==chan])
+        visual_populations['DK'].extend(dfelec['ROI_DK'].loc[dfelec['electrode_name']==chan])
+    return visual_populations
+    
+def functional_grouping(subject, visual_cat):
+    functional_group = {'subject_id': [], 'chan_name': [], 'category': [], 'brodman': []}
+    for key in visual_cat.keys():
+        cat = visual_cat[key]
+        functional_group['subject_id'].extend([subject.name]*len(cat))
+        functional_group['chan_name'] = cat
+        functional_group['category'].extend([key]*len(cat))
+        functional_group['brodman'].extend(subject.ROIs(cat))
+        functional_group['DK'].extend(subject.ROI_DK(cat))
+    return functional_group
+
 
 def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'): 
    # Return visual channels in dictionary to save in matfile 

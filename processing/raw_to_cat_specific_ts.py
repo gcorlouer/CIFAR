@@ -16,37 +16,43 @@ import mne
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from pathlib import Path, PurePath
+from scipy.io import savemat
+
 # %matplotlib
 
 
 # %% Parameters
 proc = 'preproc' # Line noise removed
-ext2save = '.mat'
-sub = 'AnRa' 
-task = 'stimuli' # stimuli or rest_baseline_1
-cat = 'Place' # Face or Place if task=stimuli otherwise cat=Rest
+sub = 'DiAs' 
+task = 'rest_baseline' # stimuli or rest_baseline
+cat = 'Rest' # Face or Place if task=stimuli otherwise cat=Rest
 run = '1'
+suffix = 'preprocessed_raw'
+ext = '.fif'
 fs = 250; # resample
+nband=6
+
 duration = 10 # Event duration for resting state epoching
 t_pr = -0.01
 t_po = 1.5
 suffix2save = 'HFB_visual_epoch_' + cat
-
+ext2save = '.mat'
 # cat_id = extract_stim_id(event_id, cat = cat)
 # %% Import data
 # Load visual channels
-path_visual = cifar_load_subject.all_visual_channels_path()
-df_visual = pd.read_csv(path_visual)
 
 # Load data
-subject = cf_load.Subject(name=sub, task= task, run = run)
-fpath = subject.fpath(proc = proc, suffix='lnrmv')
-raw = subject.import_data(fpath)
-
+subject = cifar_load_subject.Subject(name=sub, task= task, run = run)
+fpath = subject.dataset_path(proc = proc, suffix=suffix, ext=ext)
+raw = mne.io.read_raw_fif(fpath, preload=True)
+brain_path = subject.brain_path()
+visual_chan_path = brain_path.joinpath('visual_channels.csv')
+df_visual = pd.read_csv(visual_chan_path)
 # %% Preprocess data
 
 # Extract HFB envelope
-bands = HFB_process.freq_bands() # Select Bands of interests 
+bands = HFB_process.freq_bands(nband=nband) # Select Bands of interests 
 HFB = HFB_process.extract_HFB(raw, bands) # Extract HFB
 
 # Epoch  envelope, keeping specific category only
@@ -70,11 +76,23 @@ events, event_id = mne.events_from_annotations(raw) # adapt events to sampling r
 
 # Prepare dictionary for GC analysis
 
-visual_dict = HFB_process.make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub=sub)
 
+channels_group = df_visual.to_dict(orient='list')
+visual_chans = channels_group['chan_name']
+chans_group = channels_group['group']
+groups = list(set(chans_group))
+group_to_chan = []
+group_to_chan_dict = dict()
+for group in groups:
+    group_to_chan = [i for i, x in enumerate(chans_group) if x == group]
+    group_to_chan_dict[group] = group_to_chan
+multitrial_ts = HFB_process.log_transform(epochs, picks=visual_chans)
 # Save data for GC analysis
 
-fpath2save = subject.fpath(proc = proc, 
+visual_populations = dict(channels_group, groups=groups, multitrial_ts=multitrial_ts)
+visual_populations.update(group_to_chan_dict)
+
+fpath2save = subject.dataset_path(proc = proc, 
                             suffix = suffix2save, ext=ext2save)
-sp.io.savemat(fpath2save, visual_dict)
+sp.io.savemat(fpath2save, visual_populations)
 
