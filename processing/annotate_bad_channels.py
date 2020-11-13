@@ -30,7 +30,7 @@ task = 'rest_baseline' # stimuli or rest_baseline
 run = '2'
 fs = 500; # resample
 
-suffix2save = 'bad_chans_removed' 
+suffix2save = 'bad_chans_marked' 
 ext2save = '_raw.fif'
 
 # cat_id = extract_stim_id(event_id, cat = cat)
@@ -43,7 +43,6 @@ raw = subject.read_eeglab_dataset(fpath)
 dfelec = subject.df_electrodes_info()
 
 # dfelec['electrode_name', 'ROI_DK', 'Brodman'] uncomment to check anatomical location
-#%% Visual inspection 
 
 raw.plot(duration=130, n_channels= 30, scalings = 1e-4) 
 

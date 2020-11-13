@@ -51,7 +51,7 @@ def extract_HFB(raw, bands):
         mean_amplitude = mean_amplitude + np.mean(envelope, axis=1)
 
     HFB = HFB/nband # average over all bands
-    HFB = HFB * mean_amplitude[:,np.newaxis] # bring back to volts
+    HFB = HFB * mean_amplitude[:,np.newaxis] # multiply by mean amplitude to bring back to volts
     HFB = np.nan_to_num(HFB) # replace nan with zeros
     HFB = mne.io.RawArray(HFB, raw.info)
     return HFB
@@ -70,33 +70,24 @@ def epoch_HFB(HFB, raw, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
                     tmax=t_po, baseline=baseline,preload=preload)
     return epochs
 
-def extract_prestim_baseline(epochs, tmin=-0.4, tmax=-0.1):
+def extract_baseline(epochs, tmin=-0.4, tmax=-0.1):
     baseline = epochs.copy().crop(tmin=tmin, tmax=tmax) # Extract prestimulus baseline
     baseline = baseline.get_data()
-    baseline = np.mean(baseline,axis=2) # average baseline over prestimulus
-    baseline = spstats.mstats.gmean(baseline,axis=0) # geometric mean accross trials
+    baseline = np.mean(baseline,axis=(0,2)) # average over prestimulus and trials
     return baseline 
 
-def baseline_normalisation(epochs, tmin=-0.4, tmax=-0.1):
-    baseline = extract_prestim_baseline(epochs, tmin=tmin, tmax=tmax)
-    A = epochs.get_data()
-    A_norm = np.zeros_like(A)
-    for i in range(len(epochs.info['ch_names'])):
-        A_norm[:,i,:] = np.divide(A[:,i,:], baseline[i])# divide by baseline
-        A_norm = np.nan_to_num(A_norm)
-    return A_norm 
 
-def dB_transform_amplitude(A_norm, raw, t_pr=-0.5):
+def db_transform(epochs, raw, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
     events, event_id = mne.events_from_annotations(raw)
-    A_db =  np.zeros_like(A_norm) 
-    for i in range(np.size(A_db,0)):
-        for j in range(np.size(A_db,1)):
-            A_db[i,j,:] = 10*np.log10(A_norm[i,j,:]) # transform into normal distribution
-        HFB_db = np.nan_to_num(A_db)
-    del event_id['boundary']
-    HFB_db = mne.EpochsArray(HFB_db, raw.info, events=events[1:], 
-                             event_id=event_id, tmin=t_pr) # Drop boundary event (otherwise event size don't match)
-    return HFB_db 
+    baseline = extract_baseline(epochs, tmin=tmin, tmax=tmax)
+    A = epochs.get_data()
+    A = np.divide(A, baseline[np.newaxis,:,np.newaxis]) # divide by baseline
+    A = np.nan_to_num(A)
+    A = 10*np.log10(A) # convert to db
+    #del event_id['boundary']
+    HFB = mne.EpochsArray(A, raw.info, events=events[1:], 
+                             event_id=event_id, tmin=t_pr) # Drop boundary event
+    return HFB
 
 def log_transform(epochs, picks):
     # transform into log normal distribution, should also work with raw structure
@@ -104,18 +95,13 @@ def log_transform(epochs, picks):
     log_HFB = np.log(data)
     return log_HFB
 
-def epochs_to_HFB_db(epochs, raw, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
-    A_norm = baseline_normalisation(epochs, tmin=-0.4, tmax=-0.1)
-    HFB_db = dB_transform_amplitude(A_norm, raw,  t_pr)
-    return HFB_db
-
 def raw_to_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
                        preload=True, tmin=-0.4, tmax=-0.1):
     HFB = extract_HFB(raw, bands)
     events, event_id = mne.events_from_annotations(raw)
     epochs = epoch_HFB(HFB, raw, t_pr = t_pr, t_po = t_po, baseline=baseline,
                        preload=preload)
-    HFB_db = epochs_to_HFB_db(epochs, raw, tmin=tmin, tmax=tmax, t_pr=t_pr)
+    HFB_db = db_transform(epochs, raw, tmin=tmin, tmax=tmax, t_pr=t_pr)
     return HFB_db
 
 def plot_HFB_response(HFB_db, stim_id, picks='LTo4'):
@@ -131,7 +117,7 @@ def plot_HFB_response(HFB_db, stim_id, picks='LTo4'):
 
 def epoch(HFB, raw, task='stimuli',
                             cat='Face', duration=5, t_pr = -0.1, t_po = 1.75):
-    # TODO : must depend on wether raw or bipolar
+    """Epoch HFB depending task"""
     if task=='stimuli':
         events, event_id = mne.events_from_annotations(raw)
         cat_id = extract_stim_id(event_id, cat = cat)
@@ -146,7 +132,7 @@ def epoch(HFB, raw, task='stimuli',
 #%% Detect visual electrodes specific functions
 
 def sample_mean(A):
-    M = np.mean(A,axis=2) # average over sample
+    M = np.mean(A,axis=-1) # average over sample
     # Get rid of infinity 
     M[M==-inf] = 0
     return M
@@ -159,7 +145,7 @@ def crop_stim_HFB(HFB_db, stim_id, tmin=-0.5, tmax=-0.05):
     A = HFB_db[stim_id].copy().crop(tmin=tmin, tmax=tmax).get_data()
     return A
 
-def multiple_wilcoxon_test(A_pr, A_po, nchans, alpha=0.01):
+def multiple_wilcoxon_test(A_po, A_pr, nchans, alpha=0.05):
     # maybe HFB_db variablenot necessary
     """Wilcoxon test for visual responsivity"""
     A_po = sample_mean(A_po)
@@ -175,6 +161,22 @@ def multiple_wilcoxon_test(A_pr, A_po, nchans, alpha=0.01):
     w_test = reject, pval_correct, tstat
     return w_test
 
+def multiple_t_test(A_po, A_pr, nchans, alpha=0.05):
+    # maybe HFB_db variablenot necessary
+    """t test for visual responsivity"""
+    A_po = sample_mean(A_po)
+    A_pr = sample_mean(A_pr)
+    # Initialise inflated p values
+    pval = [0]*nchans
+    tstat = [0]*nchans
+    # Compute inflated stats
+    for i in range(0,nchans):
+        tstat[i], pval[i] = spstats.ttest_ind(A_po[:,i], A_pr[:,i], equal_var=False) # Non normal distrib 
+    # Correct for multiple testing    
+    reject, pval_correct = fdrcorrection(pval, alpha=alpha)
+    w_test = reject, pval_correct, tstat
+    return w_test
+
 def significant_chan(reject, HFB_db):
     """Used in detect_visual_chan function"""
     idx = np.where(reject==True)
@@ -184,31 +186,37 @@ def significant_chan(reject, HFB_db):
         visual_chan.append(HFB_db.info['ch_names'][i])
     return visual_chan
 
-def detect_visual_chan(HFB_db, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5):
+def detect_visual_chan(HFB_db, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5, alpha=0.05):
     """Return statistically significant visual channels with effect size"""
     A_pr = crop_HFB(HFB_db, tmin=tmin_pr, tmax=tmax_pr)
     A_po = crop_HFB(HFB_db, tmin=tmin_po, tmax=tmax_po)
     nchans = len(HFB_db.info['ch_names'])
-    w_test = multiple_wilcoxon_test(A_pr, A_po, nchans, alpha=0.01)
+    w_test = multiple_t_test(A_pr, A_po, nchans, alpha=alpha)
     reject = w_test[0]
     w_size = w_test[2]
     visual_chan = significant_chan(reject, HFB_db)
     return visual_chan, w_size
 
-def compute_latency(visual_HFB, image_id, visual_channels):
-    """Compute latency response of visual challens"""
+def compute_latency(visual_HFB, image_id, visual_channels, alpha = 0.05):
+    """Compute latency response of visual channels"""
     A_po = crop_stim_HFB(visual_HFB, image_id, tmin=0, tmax=1.5)
     A_pr = crop_stim_HFB(visual_HFB, image_id, tmin=-0.4, tmax=-0.1)
-    A_baseline = sample_mean(A_pr)
+    A_baseline = sample_mean(A_pr) #No 
     
+    pval = [0]*A_po.shape[2]
+    tstat = [0]*A_po.shape[2]
     latency_response = [0]*len(visual_channels)
     
     for i in range(0, len(visual_channels)):
         for t in range(0,np.size(A_po,2)):
-            tstat = spstats.ttest_rel(A_po[:,i,t], A_baseline[:,i])
-            pval = tstat[1]
-            if pval <= 0.05:
-                latency_response[i]=t/500*1e3 # break loop over samples when null is rejected convert to s
+            tstat[t] = spstats.ttest_ind(A_po[:,i,t], A_baseline[:,i], equal_var=False)
+            pval[t] = tstat[t][1]
+            
+        reject, pval_correct = fdrcorrection(pval, alpha=alpha) # correct for multiple hypotheses
+        
+        for t in range(0,np.size(A_po,2)):
+            if np.all(reject[t:t+25])==True :
+                latency_response[i]=t/500*1e3
                 break 
             else:
                 continue
@@ -233,7 +241,7 @@ def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, group, a
     A_place = crop_stim_HFB(visual_HFB, place_id, tmin=0.1, tmax=0.5)
     
     n_visuals = len(visual_HFB.info['ch_names'])
-    w_test = multiple_wilcoxon_test(A_face, A_place, n_visuals, alpha=0.01)
+    w_test = multiple_t_test(A_face, A_place, n_visuals, alpha=alpha)
     reject = w_test[0]
     w_size = w_test[2]
     
@@ -255,7 +263,7 @@ def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, group, a
 
 # %% Group functions
 
-def raw_to_visual_populations(raw, bands, dfelec,latency_threshold=160):
+def raw_to_visual_populations(raw, bands, dfelec,latency_threshold=170):
     
     # Extract and normalise HFB
     HFB_db = raw_to_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
