@@ -16,6 +16,9 @@ import mne
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from scipy.io import loadmat,savemat
+
+
 # %matplotlib
 pd.options.display.max_rows = 999
 pd.options.display.max_columns = 5
@@ -24,61 +27,63 @@ pd.options.display.max_columns = 5
 
 subjects = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'NeLa', 'SoGi']
 
+sub = 'SoGi'
+
 proc = 'preproc' # Line noise removed
-sub = 'AnRa' 
-task = 'rest_baseline' # stimuli or rest_baseline
-run = '2'
 fs = 500; # resample
 
-suffix2save = 'bad_chans_marked' 
-ext2save = '_raw.fif'
+suffix_save = '_bipolar_concatenated_bad_chans_marked' 
+ext_save = '_raw.fif'
 
-# cat_id = extract_stim_id(event_id, cat = cat)
-# %% Import data
+def concatenate_run_dataset(sub_id = sub, proc='bipolar_montage', task = 'rest_baseline', preload = True):
+    
+    subject = cifar_load_subject.Subject(name=sub_id, task = task, run='1')
+    fpath = subject.dataset_path(proc=proc, suffix='BP_montage', ext='.set')
+    raw = mne.io.read_raw_eeglab(fpath, preload=preload)
+    raw_1 = raw.copy()
+    
+         
+    subject = cifar_load_subject.Subject(name=sub_id, task = task, run='2')
+    fpath = subject.dataset_path(proc=proc, suffix='BP_montage', ext='.set')
+    raw = mne.io.read_raw_eeglab(fpath, preload=preload)
+    raw_2 = raw.copy()
+    
+    raw_1.append([raw_2])
+    return raw_1
+    
+    
+def concatenate_task_dataset(sub_id = sub):
+    
+    raw_rest =  concatenate_run_dataset(task='rest_baseline')
+    raw_stimuli = concatenate_run_dataset(task='stimuli')
+    raw_rest.append([raw_stimuli])
+    return raw_rest
 
-subject = cifar_load_subject.Subject(name=sub, task= task, run = run)
-fpath = subject.dataset_path(proc = proc, suffix='lnrmv')
-raw = subject.read_eeglab_dataset(fpath)
+#%% Concatenate
 
-dfelec = subject.df_electrodes_info()
+raw = concatenate_task_dataset(sub_id = sub)
 
-# dfelec['electrode_name', 'ROI_DK', 'Brodman'] uncomment to check anatomical location
+#%% Mark bad channels
 
-raw.plot(duration=130, n_channels= 30, scalings = 1e-4) 
-
-
-#%% Check with spectral analysis of channels
+raw.plot(scalings=1e-4, duration =200)
+#%% Check psd 
 
 raw.plot_psd(xscale = 'log')
 
-#%% Save resulting dataset
+# %% Save dataset in fif and mat
 
-fpath2save = subject.dataset_path(proc = proc, 
-                            suffix = suffix2save, ext=ext2save)
+subject = cifar_load_subject.Subject(name=sub)
+fpath_save = subject.processing_stage_path(proc='preproc')
+dataset_save = sub + '_BP_montage_concatenated_bads_marked_raw.fif'
+fname_save = fpath_save.joinpath(dataset_save)
+raw.save(fname_save, overwrite=True)
 
-raw.save(fpath2save, overwrite=True)
+# Drop bad chans and save in mat format
 
+bads = raw.info['bads']
+raw_drop_bads = raw.copy().drop_channels(bads)
 
-#%% Distribution of average values in 99 percentiles 
+dataset_save = sub+ '_BP_montage_preprocessed_raw.fif'
+fname_save = fpath_save.joinpath(dataset_save)
 
-# X = raw.get_data()
-
-# high_values = np.percentile(X, 99, axis=1)
-# bad = np.zeros_like(high_values)
-
-# for i in range(np.size(high_values)):
-#     if high_values[i]>= 700e-6:
-#         bad[i]=True
-#     else:
-#         bad[i]=False    
-
-# # Check which channels are bads according to this criteria
-
-# bad_index = np.where(bad==True)[0]
-# bad_index = bad_index.tolist()
-# print(raw.info['ch_names'][index] for index in bad_index)
-# for i in bad_index:
-#     print(raw.info['ch_names'][i])
-    
-
-
+raw_drop_bads.save(fname_save, overwrite=True)

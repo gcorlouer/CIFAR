@@ -54,6 +54,7 @@ def extract_HFB(raw, bands):
     HFB = HFB * mean_amplitude[:,np.newaxis] # multiply by mean amplitude to bring back to volts
     HFB = np.nan_to_num(HFB) # replace nan with zeros
     HFB = mne.io.RawArray(HFB, raw.info)
+    HFB.set_annotations(raw.annotations)
     return HFB
 
 def extract_stim_id(event_id, cat = 'Face'):
@@ -87,6 +88,16 @@ def db_transform(epochs, raw, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
     #del event_id['boundary']
     HFB = mne.EpochsArray(A, raw.info, events=events[1:], 
                              event_id=event_id, tmin=t_pr) # Drop boundary event
+    return HFB
+
+def db_transform_cat(epochs, events, event_id=None, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
+    baseline = extract_baseline(epochs, tmin=tmin, tmax=tmax)
+    A = epochs.get_data()
+    A = np.divide(A, baseline[np.newaxis,:,np.newaxis]) # divide by baseline
+    A = np.nan_to_num(A)
+    A = 10*np.log10(A) # convert to db
+    HFB = mne.EpochsArray(A, epochs.info, events=events, 
+                             event_id=event_id, tmin=t_pr) 
     return HFB
 
 def log_transform(epochs, picks):
@@ -225,7 +236,8 @@ def compute_latency(visual_HFB, image_id, visual_channels, alpha = 0.05):
 def classify_retinotopic(latency_response, visual_channels, dfelec, latency_threshold=180):
     """Return retinotopic areas V1 and V2"""
     group = ['other']*len(visual_channels)
-    for idx, channel in enumerate(visual_channels):
+    visual_channels_split = [visual_channels[i].split('-')[0] for i in range(len(visual_channels))]
+    for idx, channel in enumerate(visual_channels_split):
         brodman = dfelec['Brodman'].loc[dfelec['electrode_name']==channel]
         brodman = brodman.to_string(index=False)
         if brodman ==' V1' and latency_response[idx] <= latency_threshold :
@@ -329,5 +341,73 @@ def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'):
     return visual_dict 
 
 
+# %% Create category specific time series 
 
+def epoch_cat_HFB(HFB_visual, cat='Rest', tmin=-0.5, tmax=1.75):
+    if cat == 'Rest':
+        events_1 = mne.make_fixed_length_events(HFB_visual, id=32, start=70, 
+                                                stop=200, duration=2, first_samp=False, overlap=0.0)
+        events_2 = mne.make_fixed_length_events(HFB_visual, id=32, 
+                                                start=280, stop=400, duration=2, first_samp=False, overlap=0.0)
+        
+        events = np.concatenate((events_1,events_2))
+        rest_id = {'Rest': 32}
+        # epoch
+        epochs= mne.Epochs(HFB_visual, events, event_id= rest_id, 
+                            tmin=tmin, tmax=tmax, baseline= None, preload=True)
+    else:
+        stim_events, stim_events_id = mne.events_from_annotations(HFB_visual)
+        cat_id = extract_stim_id(stim_events_id, cat = cat)
+        epochs= mne.Epochs(HFB_visual, stim_events, event_id= stim_events_id, 
+                            tmin=tmin, tmax=tmax, baseline= None, preload=True)
+        epochs = epochs[cat_id]
+        events = epochs.events
+    return epochs, events
+
+def HFB_to_visual(HFB_visual, group, visual_chan, cat='Rest', tmin_crop = 0.5, tmax_crop=1.75) :
+        epochs, events = epoch_cat_HFB(HFB_visual, cat=cat, tmin=-0.5, tmax=1.75)
+        HFB = db_transform_cat(epochs, events, tmin=-0.4, tmax=-0.1, t_pr=-0.5)
+        HFB = HFB.crop(tmin=tmin_crop, tmax=tmax_crop)
+        
+        # Get data and permute into hierarchical order
+
+        population_indices = dict.fromkeys(group)
+        for key in group:
+            population_indices[key] = visual_chan[visual_chan['group'] == key].index.to_list()
+        
+        visual_hierarchy = ['V1', 'V2', 'Place', 'Face']
+        permuted_population_indices = dict.fromkeys(visual_hierarchy)
+        permuted_indices = []
+        
+        # Find index permutation
+        for key in permuted_population_indices:
+            if key in group:
+               permuted_population_indices[key] = population_indices[key]
+               permuted_indices.extend(population_indices[key])
+            else:
+                permuted_population_indices[key] = []
+            
+        for key in permuted_population_indices:
+            if key in group:
+                for idx, i in enumerate(permuted_population_indices[key]):
+                    permuted_population_indices[key][idx] = permuted_indices.index(i)
+            else: 
+                continue 
+                    
+        X = HFB.get_data()
+        X_permuted = np.zeros_like(X)
+        
+        for idx, i in enumerate(permuted_indices):
+            X_permuted[:,idx,:] = X[:,i,:]
+        
+        # Adapt to matlab indexing
+        for key in permuted_population_indices:
+            for i in range(len(permuted_population_indices[key])):
+                permuted_population_indices[key][i] = permuted_population_indices[key][i] + 1 
+                
+        # Save time series into dictionary 
+        X_permuted = np.transpose(X_permuted, axes = (1,2,0)) # permute for GC analysis
+        visual_data = dict(data= X_permuted, populations=permuted_population_indices)
+        
+        return visual_data
 

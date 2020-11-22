@@ -13,7 +13,7 @@ import pandas as pd
 
 from pathlib import Path
 
-%matplotlib
+# %matplotlib
 
 plt.rcParams.update({'font.size': 17})
 

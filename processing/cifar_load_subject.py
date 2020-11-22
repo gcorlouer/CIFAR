@@ -130,9 +130,12 @@ class Subject:
         dataset_path = os.fspath(dataset_path)
         return dataset_path
     
-    def read_eeglab_dataset(self, dataset_path, preload=True):
-        """ Read eeglab dataset into mne raw object """
-        raw = mne.io.read_raw_eeglab(dataset_path, preload=preload)
+    
+    def read_eeglab(self, proc= 'raw_signal', suffix = '', ext='.set',preload=True):
+    
+        fpath = self.dataset_path(proc = proc, suffix=suffix)
+        raw = mne.io.read_raw_eeglab(fpath, preload=preload)
+        
         return raw
     
     def brodman(self, chan_name):
