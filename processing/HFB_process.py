@@ -12,12 +12,13 @@ import numpy as np
 import re
 import scipy.stats as spstats
 import matplotlib.pyplot as plt
+import cifar_load_subject as cf
 
 from numpy import inf
 from statsmodels.stats.multitest import fdrcorrection, multipletests
 
-# TODO: Find all place and face selective elctrodes and plot grand average response.
-# And split in 2 scripts
+#%% Extract and epoch high frequency band envelope
+
 def freq_bands(l_freq=60, nband=6, band_size=20):
     bands = [l_freq+i*band_size for i in range(0, nband)]
     return bands
@@ -90,15 +91,6 @@ def db_transform(epochs, raw, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
                              event_id=event_id, tmin=t_pr) # Drop boundary event
     return HFB
 
-def db_transform_cat(epochs, events, event_id=None, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
-    baseline = extract_baseline(epochs, tmin=tmin, tmax=tmax)
-    A = epochs.get_data()
-    A = np.divide(A, baseline[np.newaxis,:,np.newaxis]) # divide by baseline
-    A = np.nan_to_num(A)
-    A = 10*np.log10(A) # convert to db
-    HFB = mne.EpochsArray(A, epochs.info, events=events, 
-                             event_id=event_id, tmin=t_pr) 
-    return HFB
 
 def log_transform(epochs, picks):
     # transform into log normal distribution, should also work with raw structure
@@ -140,7 +132,7 @@ def epoch(HFB, raw, task='stimuli',
                             baseline=None, preload=True)
     return epochs   
 
-#%% Detect visual electrodes specific functions
+#%% Classify visually responsive populations
 
 def sample_mean(A):
     M = np.mean(A,axis=-1) # average over sample
@@ -182,7 +174,7 @@ def multiple_t_test(A_po, A_pr, nchans, alpha=0.05):
     tstat = [0]*nchans
     # Compute inflated stats
     for i in range(0,nchans):
-        tstat[i], pval[i] = spstats.ttest_ind(A_po[:,i], A_pr[:,i], equal_var=False) # Non normal distrib 
+        tstat[i], pval[i] = spstats.ttest_ind(A_po[:,i], A_pr[:,i], equal_var=False)  
     # Correct for multiple testing    
     reject, pval_correct = fdrcorrection(pval, alpha=alpha)
     w_test = reject, pval_correct, tstat
@@ -273,7 +265,7 @@ def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, group, a
                    group[idx] = 'Place'
     return group, w_size
 
-# %% Group functions
+# %% Make a dictionary informative about visually responsive time series 
 
 def raw_to_visual_populations(raw, bands, dfelec,latency_threshold=170):
     
@@ -343,7 +335,7 @@ def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'):
 
 # %% Create category specific time series 
 
-def epoch_cat_HFB(HFB_visual, cat='Rest', tmin=-0.5, tmax=1.75):
+def epoch_category(HFB_visual, cat='Rest', tmin=-0.5, tmax=1.75):
     if cat == 'Rest':
         events_1 = mne.make_fixed_length_events(HFB_visual, id=32, start=70, 
                                                 stop=200, duration=2, first_samp=False, overlap=0.0)
@@ -364,50 +356,121 @@ def epoch_cat_HFB(HFB_visual, cat='Rest', tmin=-0.5, tmax=1.75):
         events = epochs.events
     return epochs, events
 
-def HFB_to_visual(HFB_visual, group, visual_chan, cat='Rest', tmin_crop = 0.5, tmax_crop=1.75) :
-        epochs, events = epoch_cat_HFB(HFB_visual, cat=cat, tmin=-0.5, tmax=1.75)
-        HFB = db_transform_cat(epochs, events, tmin=-0.4, tmax=-0.1, t_pr=-0.5)
-        HFB = HFB.crop(tmin=tmin_crop, tmax=tmax_crop)
+def db_transform_category(epochs, events, event_id=None, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
+    baseline = extract_baseline(epochs, tmin=tmin, tmax=tmax)
+    A = epochs.get_data()
+    A = np.divide(A, baseline[np.newaxis,:,np.newaxis]) # divide by baseline
+    A = np.nan_to_num(A)
+    A = 10*np.log10(A) # convert to db
+    HFB = mne.EpochsArray(A, epochs.info, events=events, 
+                             event_id=event_id, tmin=t_pr) 
+    return HFB
+
+
+def visually_responsive_HFB(sub_id= 'DiAs', proc= 'preproc', 
+                            stage= '_BP_montage_HFB_raw.fif'):
+    """Load high frequency envelope of visually responsive channels"""
+    subject = cf.Subject(name=sub_id)
+    raw = subject.load_raw_data(proc= proc, stage= stage)
+    visual_chan = subject.pick_visual_chan()
+    visual_chan_name = visual_chan['chan_name'].values.tolist()
+    HFB_visual = raw.copy().pick_channels(visual_chan_name)
+    return HFB_visual
+
+def low_high_HFB(sub_id= 'DiAs', proc= 'preproc', stage= '_BP_montage_HFB_raw.fif'):
+    """Extract high frequency envelope of low and high channels"""
+    subject = cf.Subject(name=sub_id)
+    raw = subject.load_raw_data(proc= proc, stage= stage)
+    visual_chan = subject.low_high_chan()
+    visual_chan_name = visual_chan['chan_name'].values.tolist()
+    HFB_visual = raw.copy().pick_channels(visual_chan_name)
+    return HFB_visual
         
+def category_specific_HFB(HFB_visual, group, visual_chan, cat='Rest', tmin_crop = 0.5, tmax_crop=1.75) :
+        epochs, events = epoch_category(HFB_visual, cat=cat, tmin=-0.5, tmax=1.75)
+        HFB = db_transform_category(epochs, events, tmin=-0.4, tmax=-0.1, t_pr=-0.5)
+        HFB = HFB.crop(tmin=tmin_crop, tmax=tmax_crop)
+        return HFB 
         # Get data and permute into hierarchical order
 
-        population_indices = dict.fromkeys(group)
-        for key in group:
-            population_indices[key] = visual_chan[visual_chan['group'] == key].index.to_list()
-        
-        visual_hierarchy = ['V1', 'V2', 'Place', 'Face']
-        permuted_population_indices = dict.fromkeys(visual_hierarchy)
-        permuted_indices = []
-        
-        # Find index permutation
-        for key in permuted_population_indices:
-            if key in group:
-               permuted_population_indices[key] = population_indices[key]
-               permuted_indices.extend(population_indices[key])
-            else:
-                permuted_population_indices[key] = []
-            
-        for key in permuted_population_indices:
-            if key in group:
-                for idx, i in enumerate(permuted_population_indices[key]):
-                    permuted_population_indices[key][idx] = permuted_indices.index(i)
-            else: 
-                continue 
-                    
-        X = HFB.get_data()
-        X_permuted = np.zeros_like(X)
-        
-        for idx, i in enumerate(permuted_indices):
-            X_permuted[:,idx,:] = X[:,i,:]
-        
-        # Adapt to matlab indexing
-        for key in permuted_population_indices:
-            for i in range(len(permuted_population_indices[key])):
-                permuted_population_indices[key][i] = permuted_population_indices[key][i] + 1 
-                
-        # Save time series into dictionary 
-        X_permuted = np.transpose(X_permuted, axes = (1,2,0)) # permute for GC analysis
-        visual_data = dict(data= X_permuted, populations=permuted_population_indices)
-        
-        return visual_data
+def subject_specific_visual_indices(visual_chan):
+    """Return indices of channel belonging to a visual population 
+    present in a subject"""
+    group = visual_chan['group'].unique().tolist()
+    indices = dict.fromkeys(group)
+    for key in group:
+       indices[key] = visual_chan[visual_chan['group'] == key].index.to_list()
+    return indices
 
+def visual_population_indices(visual_chan):
+    """Return population indices of a given subject in each population from a 
+    visual hierarchy of interest"""
+    group = visual_chan['group'].unique().tolist()
+    visual_hierarchy = ['V1', 'V2', 'Place', 'Face']
+    population_indices = dict.fromkeys(visual_hierarchy) 
+    indices = subject_specific_visual_indices(visual_chan)
+   # Find indices of channels in each population
+    for key in population_indices:
+       if key in group:
+           population_indices[key] = indices[key]
+       else: 
+           population_indices[key] = [] # no channel in population
+    return population_indices
+
+def order_channel_indices(population_indices, group):
+    """Order channel indices along visual hierarchy"""
+    
+    ordered_channel_indices = [] 
+    for key in population_indices:
+       if key in group:
+           ordered_channel_indices.extend(population_indices[key])
+       else:
+           continue
+    return ordered_channel_indices
+
+def order_population_indices(population_indices, ordered_channel_indices, group):
+    """Return population indices from channel ordered along visual hierarhcy"""
+    
+    ordered_population_indices = dict.fromkeys(population_indices) 
+    for key in population_indices:
+     if key in group:
+         ordered_population_indices[key] = [0]*len(population_indices[key])
+         for idx, i in enumerate(population_indices[key]):
+             ordered_population_indices[key][idx] = ordered_channel_indices.index(i) +1 #adapt to matlab indexing
+     else: 
+         ordered_population_indices[key] = []
+    return ordered_population_indices
+
+def order_visual_data_indices(ordered_channel_indices, HFB):
+    """Order visual HFB data indices along visual herarchy"""
+    X = HFB.get_data()
+    X_ordered = np.zeros_like(X)
+    for idx, i in enumerate(ordered_channel_indices):
+            X_ordered[:,idx,:] = X[:,i,:]
+    X = X_ordered
+    return X
+
+def visual_data_dict(X, ordered_population_indices):
+    """Build a dictionary for mvgc analysis of category specific visual time series"""
+    # Save time series into dictionary 
+    X = np.transpose(X, axes = (1,2,0)) # permute for compatibility with mvgc
+    visual_data = dict(data= X, populations=ordered_population_indices)
+    return visual_data
+
+def category_specific_HFB_to_visual_data(HFB, visual_chan):
+    
+    group = visual_chan['group'].unique().tolist()
+    population_indices = visual_population_indices(visual_chan)
+    ordered_channel_indices =order_channel_indices(population_indices, group)
+    ordered_population_indices = order_population_indices(population_indices, 
+                                                          ordered_channel_indices, group)
+    X = order_visual_data_indices(ordered_channel_indices, HFB)
+    visual_data = visual_data_dict(X, ordered_population_indices)
+    return visual_data
+
+def HFB_to_visual_data(HFB, visual_chan, cat='Rest', tmin_crop = 0.5, tmax_crop=1.75):
+    
+    group = visual_chan['group'].unique().tolist()
+    HFB = category_specific_HFB(HFB, group, visual_chan, cat='Rest', tmin_crop = 0.5, tmax_crop=1.75)
+    visual_data = category_specific_HFB_to_visual_data(HFB, visual_chan)
+    return visual_data

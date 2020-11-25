@@ -17,7 +17,7 @@ from shutil import copy
 # Define some useful functions that will be used in subject class
 def cifar_ieeg_path(home='~'):
     home = Path(home).expanduser()
-    ieeg_path = home.joinpath('CIFAR_data', 'iEEG_10')
+    ieeg_path = home.joinpath('projects', 'CIFAR', 'CIFAR_data', 'iEEG_10')
     return ieeg_path 
 
 def all_visual_channels_path(home='~'):
@@ -138,6 +138,15 @@ class Subject:
         
         return raw
     
+    def load_raw_data(self, proc= 'preproc', stage= '_BP_montage_HFB_raw.fif'):  
+        datadir = self.processing_stage_path(proc=proc)
+        sub = self.name
+        fname = sub + stage
+        fpath = datadir.joinpath(fname)
+        raw = mne.io.read_raw_fif(fpath, preload=True)
+        return raw 
+
+    
     def brodman(self, chan_name):
         """Return Brodman area of a given channel"""
         df_electrodes_info = self.df_electrodes_info()
@@ -155,6 +164,22 @@ class Subject:
         ROI_brodman = picks2brodman(df_electrodes_info, picks)
         return ROI_brodman
 
+    def pick_visual_chan(self):
+        
+        brain_path = self.brain_path()
+        fname = 'visual_channels_BP_montage.csv'
+        fpath = brain_path.joinpath(fname)
+        visual_chan = pd.read_csv(fpath)
+        return visual_chan
+    
+    def low_high_chan(self):
+        """Drop channels in other category to only keep retinotopic (low)  
+        Face and Place selective channels (high)"""
+        visual_chan = self.pick_visual_chan()
+        visual_chan = visual_chan[visual_chan.group != 'other']
+        visual_chan = visual_chan.reset_index(drop=True)
+        return visual_chan
+    
     
 
 
