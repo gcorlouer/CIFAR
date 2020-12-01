@@ -1,5 +1,5 @@
 import HFB_process as hf
-import cifar_load_subject as  cf
+import cifar_load_subject as cf
 import scipy as sp
 import re 
 import numpy as np
