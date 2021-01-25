@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Created on Mon Jan 11 11:51:03 2021
+
+@author: guime
+"""
+
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
 Created on Tue Dec 15 13:50:56 2020
 
 @author: guime
@@ -53,11 +62,31 @@ subject = cf.Subject(name=sub_id)
 datadir = subject.processing_stage_path(proc=proc)
 visual_chan = subject.pick_visual_chan()
 sorted_visual_chan = visual_chan.sort_values(by='latency')
-
+# visual_chan = hf.pick_visual_chan(picks, visual_chan)
+HFB = hf.visually_responsive_HFB(sub_id = sub_id)
 
 # %%
-group = visual_chan['group'].unique().tolist()
 
+HFB_cat_po = hf.category_specific_HFB(HFB, cat=cat, tmin_crop = 0.1, tmax_crop=0.5)
+HFB_cat_pr = hf.category_specific_HFB(HFB, cat=cat, tmin_crop =-0.4, tmax_crop=-0.1)
 
+X_po = HFB_cat_po.copy().get_data()
+X_pr = HFB_cat_pr.copy().get_data()
 
-anatomical_indices = hf.parcellation_to_indices(visual_chan, parcellation='DK')
+X_po = X_po.flatten()
+X_pr = X_pr.flatten()
+
+times_po = HFB_cat_po.times
+times_pr = HFB_cat_pr.times
+
+#%% 
+
+plt.hist(X_pr, bins=100)
+
+#%% 
+
+skew_po = stats.skew(X_po)
+skew_pr = stats.skew(X_pr)
+
+kurtosis_po = stats.kurtosis(X_po)
+kurtosis_pr = stats.kurtosis(X_pr)

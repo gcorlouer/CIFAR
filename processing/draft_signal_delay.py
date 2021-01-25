@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Dec 15 13:50:56 2020
+Created on Mon Dec 14 17:32:56 2020
 
 @author: guime
 """
@@ -36,28 +36,41 @@ from scipy.io import loadmat,savemat
 pd.options.display.max_rows = 999
 
 sub_id = 'DiAs'
-visual_chan_table = 'visual_channels_BP_montage.csv'
-proc = 'preproc'
-cat = 'Face' 
-sfreq = 100;
+cat = 'Face'
+proc = 'preproc' 
+sfreq = 500;
 picks = ['LGRD60-LGRD61', 'LTo1-LTo2']
-tmin_crop = 0.5
+tmin_crop = 0
 tmax_crop = 1.5
 suffix = 'preprocessed_raw'
 ext = '.fif'
 
-
-#%%v
+#%%
 
 subject = cf.Subject(name=sub_id)
 datadir = subject.processing_stage_path(proc=proc)
-visual_chan = subject.pick_visual_chan()
-sorted_visual_chan = visual_chan.sort_values(by='latency')
+visual_chan = subject.low_high_chan()
+#visual_chan = hf.pick_visual_chan(picks, visual_chan)
+HFB = hf.low_high_HFB(visual_chan)
 
+#%% Plot HFB
 
-# %%
-group = visual_chan['group'].unique().tolist()
+HFB_cat = hf.category_specific_HFB(HFB, cat='Face', tmin_crop = tmin_crop, tmax_crop=tmax_crop)
+time = HFB_cat.times
+evok = HFB_cat.copy().average()
+ERP = evok.data
 
+plt.plot(time, ERP[0,:])
+plt.plot(time, ERP[1,:])
 
+#%% Find signal delay 
 
-anatomical_indices = hf.parcellation_to_indices(visual_chan, parcellation='DK')
+X = ERP
+nchan, nobs = X.shape
+peak = np.amax(X, axis=1);
+peak_time = np.zeros((nchan, 1))
+                     
+for i in range(0,nchan):
+    peak_time[i] = np.where(X[i,:]==peak[i])
+    peak_time[i] = peak_time[i]/sfreq
+    

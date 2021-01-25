@@ -91,6 +91,7 @@ time = time[0:len(X[0])]
 
 plt.plot(time,X[0])
 plt.plot(time,envelope[0])
+plt.tick_params(axis='both', labelsize=0, length = 0)
 
 
 #%% 

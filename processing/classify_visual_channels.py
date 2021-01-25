@@ -47,7 +47,7 @@ for sub in sub_id:
     
     bands = HFB_process.freq_bands() # Select Bands of interests
     
-    visual_populations = HFB_process.raw_to_visual_populations(raw, bands, dfelec,latency_threshold=170)
+    visual_populations = HFB_process.raw_to_visual_populations(raw, bands, dfelec)
     
     df_visual = pd.DataFrame.from_dict(visual_populations, orient='index')
     df_visual = df_visual.transpose()
@@ -74,56 +74,56 @@ for sub in sub_id:
     df_visual_table = df_visual_table.append(df_visual)
     
 path = cf.cifar_ieeg_path()
-fname = 'visual_channels_table_BP_montage.csv'
+fname = 'visual_channels_BP_montage.csv'
 fpath = path.joinpath(fname)
 df_visual_table.to_csv(fpath, index=False)
 
 #%% Create tables
 
-populations = ['V1', 'V2', 'other', 'Place', 'Face']
-keys = ['visual'] + populations
-keys = ['subject_id'] + keys
+# populations = ['V1', 'V2', 'other', 'Place', 'Face']
+# keys = ['visual'] + populations
+# keys = ['subject_id'] + keys
 
-df_demographic = pd.DataFrame(columns=keys)
+# df_demographic = pd.DataFrame(columns=keys)
 
-visual = [0]*len(sub_id)
-V1 = [0]*len(sub_id)
-V2 = [0]*len(sub_id)
-other = [0]*len(sub_id)
-place = [0]*len(sub_id)
-face = [0]*len(sub_id)
+# visual = [0]*len(sub_id)
+# V1 = [0]*len(sub_id)
+# V2 = [0]*len(sub_id)
+# other = [0]*len(sub_id)
+# place = [0]*len(sub_id)
+# face = [0]*len(sub_id)
 
-def count_values(df_visual_table, sub='DiAS', population='V1'):
-    if population in df_visual_table['group'].loc[df_visual_table['subject_id']==sub].values:
-        nchans = df_visual_table['group'].loc[df_visual_table['subject_id']==sub].value_counts()[population]
-    else:
-        nchans = 0
+# def count_values(df_visual_table, sub='DiAS', population='V1'):
+#     if population in df_visual_table['group'].loc[df_visual_table['subject_id']==sub].values:
+#         nchans = df_visual_table['group'].loc[df_visual_table['subject_id']==sub].value_counts()[population]
+#     else:
+#         nchans = 0
         
-    return nchans
+#     return nchans
 
-for idx, sub in enumerate(sub_id):
+# for idx, sub in enumerate(sub_id):
     
-    visual[idx] = df_visual_table['subject_id'].value_counts()[sub]
-    V1[idx] =  count_values(df_visual_table, sub=sub, population='V1')
-    V2[idx] = count_values(df_visual_table, sub=sub, population='V2')
-    other[idx] = count_values(df_visual_table, sub=sub, population='other')
-    place[idx] = count_values(df_visual_table, sub=sub, population='Place')
-    face[idx] = count_values(df_visual_table, sub=sub, population='Face')
+#     visual[idx] = df_visual_table['subject_id'].value_counts()[sub]
+#     V1[idx] =  count_values(df_visual_table, sub=sub, population='V1')
+#     V2[idx] = count_values(df_visual_table, sub=sub, population='V2')
+#     other[idx] = count_values(df_visual_table, sub=sub, population='other')
+#     place[idx] = count_values(df_visual_table, sub=sub, population='Place')
+#     face[idx] = count_values(df_visual_table, sub=sub, population='Face')
     
     
-dict_demographic = dict.fromkeys(keys, [])
+# dict_demographic = dict.fromkeys(keys, [])
 
 
-df_demographic['subject_id'] = sub_id
-df_demographic['V1'] = V1
-df_demographic['V2'] = V2
-df_demographic['other'] = other
-df_demographic['Place'] = place
-df_demographic['Face'] = face
-df_demographic['visual'] = visual
+# df_demographic['subject_id'] = sub_id
+# df_demographic['V1'] = V1
+# df_demographic['V2'] = V2
+# df_demographic['other'] = other
+# df_demographic['Place'] = place
+# df_demographic['Face'] = face
+# df_demographic['visual'] = visual
 
-path = cf.cifar_ieeg_path()
-fname = 'visual_demographics_BP_montage.csv'
-fpath = path.joinpath(fname)
-df_demographic.to_csv(fpath, index=False)
+# path = cf.cifar_ieeg_path()
+# fname = 'visual_demographics_BP_montage.csv'
+# fpath = path.joinpath(fname)
+# df_demographic.to_csv(fpath, index=False)
 
