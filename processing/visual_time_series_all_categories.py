@@ -39,10 +39,10 @@ pd.options.display.max_rows = 999
 sub_id = 'DiAs'
 visual_chan_table = 'visual_channels_BP_montage.csv'
 proc = 'preproc' 
-sfreq = 100;
-picks = ['LGRD58-LGRD59', 'LGRD60-LGRD61', 'LTo1-LTo2', 'LTo3-LTo4']
-tmin_crop = 0.5
-tmax_crop = 1.5
+sfreq = 250;
+# picks = ['LGRD58-LGRD59', 'LGRD60-LGRD61', 'LTo1-LTo2', 'LTo3-LTo4']
+tmin_crop = -0.5
+tmax_crop = 1.75
 suffix = 'preprocessed_raw'
 ext = '.fif'
 
