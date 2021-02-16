@@ -306,20 +306,6 @@ def compute_latency(visual_HFB, image_id, visual_channels, alpha = 0.05):
                 continue
     return latency_response
 
-# def classify_retinotopic(visual_channels, dfelec):
-#     """Return retinotopic from V1 and V2"""
-#     nchan = len(visual_channels)
-#     group = ['other']*nchan
-#     bipolar_visual = [visual_channels[i].split('-') for i in range(nchan)]
-#     for i in range(nchan):
-#         brodman = (dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][0]].to_string(index=False), 
-#                    dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][1]].to_string(index=False))
-#         if brodman == (' V1', ' V1') or  brodman == (' V2', ' V2') or brodman == (' V1', ' V2') or brodman == (' V2', ' V1'):
-#             group[i]='RN'
-#         else:
-#             group[i] = 'ON' 
-#     return group
-
 def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, 
                         tmin_po=0.2, tmax_po=0.5, alpha=0.05):
     nchan = len(visual_channels)
