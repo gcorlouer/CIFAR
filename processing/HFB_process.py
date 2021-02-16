@@ -169,7 +169,7 @@ def multiple_test(A_po, A_pr, nchans, alpha=0.05):
     reject, pval_correct = fdrcorrection(pval, alpha=alpha)
     return reject
 
-def multiple_wilcoxon_test(A_po, A_pr, nchans, zero_method='pratt', alternative = 'two-sided', alpha=0.05):
+def multiple_wilcoxon_test(A_po, A_pr, nchans, zero_method='pratt', alternative = 'greater', alpha=0.05):
     # maybe HFB_db variablenot necessary
     """Wilcoxon test for visual responsivity"""
     A_po = sample_mean(A_po)
@@ -253,7 +253,7 @@ def detect_visual_chan(HFB_db, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=
     A_pr = crop_HFB(HFB_db, tmin=tmin_pr, tmax=tmax_pr)
     A_po = crop_HFB(HFB_db, tmin=tmin_po, tmax=tmax_po)
     nchans = len(HFB_db.info['ch_names'])
-    reject = multiple_test(A_pr, A_po, nchans, alpha=alpha)
+    reject, pval_correct, tstat = multiple_wilcoxon_test(A_po, A_pr, nchans, alpha=alpha, zero_method='pratt', alternative='greater')
     visual_responsivity = compute_visual_responsivity(A_po, A_pr)
     visual_chan, effect_size = visual_chans_stats(reject, visual_responsivity, HFB_db)
     return visual_chan, effect_size
@@ -306,23 +306,24 @@ def compute_latency(visual_HFB, image_id, visual_channels, alpha = 0.05):
                 continue
     return latency_response
 
-def classify_retinotopic(visual_channels, dfelec):
-    """Return retinotopic from V1 and V2"""
-    nchan = len(visual_channels)
-    group = ['other']*nchan
-    bipolar_visual = [visual_channels[i].split('-') for i in range(nchan)]
-    for i in range(nchan):
-        brodman = (dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][0]].to_string(index=False), 
-                   dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][1]].to_string(index=False))
-        if brodman == (' V1', ' V1') or  brodman == (' V2', ' V2') or brodman == (' V1', ' V2') or brodman == (' V2', ' V1'):
-            group[i]='RN'
-        else:
-            group[i] = 'ON' 
-    return group
+# def classify_retinotopic(visual_channels, dfelec):
+#     """Return retinotopic from V1 and V2"""
+#     nchan = len(visual_channels)
+#     group = ['other']*nchan
+#     bipolar_visual = [visual_channels[i].split('-') for i in range(nchan)]
+#     for i in range(nchan):
+#         brodman = (dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][0]].to_string(index=False), 
+#                    dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][1]].to_string(index=False))
+#         if brodman == (' V1', ' V1') or  brodman == (' V2', ' V2') or brodman == (' V1', ' V2') or brodman == (' V2', ' V1'):
+#             group[i]='RN'
+#         else:
+#             group[i] = 'ON' 
+#     return group
 
-def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, group, 
+def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, 
                         tmin_po=0.2, tmax_po=0.5, alpha=0.05):
-    
+    nchan = len(visual_channels)
+    group = ['O']*nchan
     category_selectivity = [0]*len(group)
     A_face = crop_stim_HFB(visual_HFB, face_id, tmin=tmin_po, tmax=tmax_po)
     A_place = crop_stim_HFB(visual_HFB, place_id, tmin=tmax_po, tmax=tmax_po)
@@ -347,20 +348,25 @@ def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, group,
         if reject_plus[idx]==False and reject_minus[idx]==False :
             continue
         else:
-            if reject_plus[idx]==True and group[idx]== 'RN' :
-               group[idx] = 'RF'
+            if reject_plus[idx]==True :
+               group[idx] = 'F'
                category_selectivity[idx] = cohen_d(A_face, A_place)
-            elif reject_minus[idx]==True and group[idx]== 'RN' :
-               group[idx] = 'RP'
+            elif reject_minus[idx]==True :
+               group[idx] = 'P'
                category_selectivity[idx] = cohen_d(A_place, A_face)
-            elif reject_plus[idx]==True:
-               group[idx] = 'HF'
-               category_selectivity[idx] = cohen_d(A_face, A_place)
-            elif reject_minus[idx]==True: 
-               group[idx] = 'HP'
-               category_selectivity[idx] = cohen_d(A_place, A_face)
-               
     return group, category_selectivity
+
+def classify_retinotopic(visual_channels, group, dfelec):
+    """Return retinotopic from V1 and V2"""
+    nchan = len(group)
+    bipolar_visual = [visual_channels[i].split('-') for i in range(nchan)]
+    for i in range(nchan):
+        brodman = (dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][0]].to_string(index=False), 
+                   dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][1]].to_string(index=False))
+        if ' V1' in brodman or ' V2' in brodman and group[i]!='F' and  group[i] !='P':
+            group[i]='R'
+    return group
+
 
 # %% Make a dictionary informative about visually responsive time series 
 
@@ -385,12 +391,11 @@ def HFB_to_visual_populations(HFB, dfelec, t_pr = -0.5, t_po = 1.75, baseline=No
     # Compute latency response
     latency_response = compute_latency(visual_HFB, image_id, visual_chan)
     
-    # Classify V1 and V2 populations
-    group = classify_retinotopic(visual_chan, dfelec)
     # Classify Face and Place populations
-    group, category_selectivity = classify_Face_Place(visual_HFB, face_id, place_id, 
-                                                 visual_chan, group,
-                                                 tmin_po=tmin_po, tmax_po=tmax_po, alpha=alpha)
+    group, category_selectivity = classify_Face_Place(visual_HFB, face_id, place_id, visual_chan, 
+                                tmin_po=tmin_po, tmax_po=tmax_po, alpha=alpha)
+    # Classify retinotopic populations
+    group = classify_retinotopic(visual_chan, group, dfelec)
     
     # Create visual_populations dictionary 
     visual_populations = {'chan_name': [], 'group': [], 'latency': [], 

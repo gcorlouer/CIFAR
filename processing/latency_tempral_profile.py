@@ -97,6 +97,10 @@ plt.plot(latency, category_selectivity, '.')
 plt.xlabel('latency response (ms)')
 plt.ylabel('category selectivity (dB)')
 
+#%%
+
+visual_table_sorted = visual_table.sort_values(by='Y')
+
 
 
 

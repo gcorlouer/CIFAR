@@ -1,59 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Feb  5 16:19:34 2021
+Created on Fri Feb 12 16:35:51 2021
 
 @author: guime
 """
-
-
-
 import HFB_process as hf
-import cifar_load_subject as cf
 import numpy as np
 import mne
 import matplotlib.pyplot as plt
 
-from pathlib import Path, PurePath
-
 from mne.time_frequency import psd_array_multitaper
-#%% TODO 
-# add alpha beta gamma bands 
-# Suggestion : concatenate all visually responsive channels for HFB analysis
-#%% Parameters
 
-# sub_id = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'NeLa', 'SoGi']
-sub_id = 'DiAs'
-proc = 'preproc'
-sfreq = 500
-adaptive = True
-duration = 60
-tmax = duration
-sfreq = 500
-fmin = 0.1
-fmax = 40
-bandwidth = 0.5
-font = {'size':20}
-#%% Load continuous HFB 
 
-subject = cf.Subject(name=sub_id)
-datadir = subject.processing_stage_path(proc=proc)
-visual_chan = subject.pick_visual_chan()
-# visual_chan = hf.pick_visual_chan(picks, visual_chan)
-HFB = hf.visually_responsive_HFB(sub_id=sub_id)
-
-#%% Plot HFB
-
-# %matplotlib qt
-
-# events, event_id = mne.events_from_annotations(HFB)
-# HFB.plot(duration=200, scalings=1e-4)
-
-#%% Helper functions
+#%% PSD utilities
 
 
 def HFB_to_psd(HFB, start=500, stop=None, duration=20, tmin=-0.1, tmax=20,
-               preload=True, baseline=None, fmin=0.1, fmax=20,
+               preload=True, baseline=None, fmin=0.1, fmax=20, adaptive=True,
                bandwidth=0.5, sfreq=500):
     events = mne.make_fixed_length_events(HFB, start=start, stop=stop, duration=duration)
     epochs = mne.Epochs(HFB, events, tmin=tmin, tmax=tmax,
@@ -65,7 +29,7 @@ def HFB_to_psd(HFB, start=500, stop=None, duration=20, tmin=-0.1, tmax=20,
     psd = np.mean(psd, axis=0)  # average over channels
     return psd, freqs
 
-def plot_psd(psd, freqs, average=True, label='PSD Rest'):
+def plot_psd(psd, freqs, average=True, label='PSD Rest', font = {'size':20}):
     (nchan, nfreq) = psd.shape
     psd = np.log(psd)
     bands = [4, 8, 16]
@@ -98,12 +62,25 @@ def plot_psd(psd, freqs, average=True, label='PSD Rest'):
     # plt.text(5, -19, 'lol')
     plt.legend()
 
-#%%
+# %% LFP utilities
 
 
-psd, freqs = HFB_to_psd(HFB, start=50, stop=300, tmax=tmax, duration=duration,
-                        bandwidth=bandwidth, fmax=fmax, sfreq=sfreq)
-plot_psd(psd, freqs, average=True, label='Rest')
-psd, freqs = HFB_to_psd(HFB, start=450, stop=None, tmax=tmax, duration=duration,
-                        bandwidth=bandwidth, fmax=fmax, sfreq=sfreq)
-plot_psd(psd, freqs, average=True, label='Stimuli')
+def LFP_to_dict(LFP, visual_chan, tmin=-0.5, tmax=1.75, sfreq=250):
+    """Return dictionary with all category specific LFP and visual channels
+    information"""
+    visual_LFP = LFP.copy().pick(visual_chan['chan_name'].tolist())
+    LFP_dict = visual_chan.to_dict(orient='list')
+    categories = ['Rest', 'Face', 'Place']
+    for cat in categories:
+        epochs, events = hf.epoch_category(visual_LFP, cat=cat, tmin=-0.5, tmax=1.75)
+        epochs = epochs.resample(sfreq)
+        X = epochs.copy().get_data()
+        X = np.transpose(X, axes=(1, 2, 0))
+        LFP_dict[cat] = X
+    LFP_dict['time'] = epochs.times
+    population_to_channel = hf.parcellation_to_indices(visual_chan, parcellation='group')
+    DK_to_channel = hf.parcellation_to_indices(visual_chan, parcellation='DK')
+    LFP_dict['population_to_channel'] = population_to_channel
+    LFP_dict['DK_to_channel'] = DK_to_channel
+    return LFP_dict
+

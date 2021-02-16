@@ -1,48 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Dec  4 13:25:46 2020
+Created on Fri Feb 12 10:59:12 2021
 
 @author: guime
 """
 
-
-import HFB_process as hf
 import cifar_load_subject as cf
-import scipy as sp
-import re 
+import HFB_process as hf
 import numpy as np
-import mne
+import helper_functions as fun
+import scipy.stats as stats
 import matplotlib.pyplot as plt
-import pandas as pd
-
-from pathlib import Path, PurePath
-from mne.viz import plot_filter, plot_ideal_filter
-from scipy import signal, fftpack
-from scipy import stats
-from statsmodels.stats.multitest import fdrcorrection, multipletests
 
 from scipy.io import loadmat,savemat
 
-# %matplotlib
-#%% TODO
-
-# -Check that there are output visual_data X is correct with HFB_visual (i.e. check that 
-# permutation works)
-# - Create a module for category specific electrodes
-# - Rearrange HFB module consequently
+#%%
 # sub_id = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'NeLa', 'SoGi']
-
-#%% 
-pd.options.display.max_rows = 999
-
 sub_id = 'DiAs'
 visual_chan_table = 'visual_channels_BP_montage.csv'
 proc = 'preproc' 
 sfreq = 250;
 # picks = ['LGRD58-LGRD59', 'LGRD60-LGRD61', 'LTo1-LTo2', 'LTo3-LTo4']
-tmin_crop = 0.050
-tmax_crop = 0.300
+tmin_crop = -0.5
+tmax_crop = 1.75
 suffix = 'preprocessed_raw'
 ext = '.fif'
 
@@ -65,12 +46,24 @@ for cat in categories:
                                     tmin_crop = tmin_crop, tmax_crop=tmax_crop)
     visual_time_series[cat] = X
 
-#%% Save dictionary
 
-fname = sub_id + '_visual_HFB_all_categories.mat'
-fpath = datadir.joinpath(fname)
+#%% Plot event related potential
 
-# Save data in Rest x Face x Place array of time series
+time = visual_time_series['time']
+channel_to_population = visual_time_series['channel_to_population']
+population_to_channel = visual_time_series['populations']
 
-savemat(fpath, visual_time_series)
+fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True)
+
+for i, cat in enumerate(categories):
+    X = visual_time_series[cat]
+    for key in population_to_channel:
+        channels = population_to_channel[key]
+        channels = [j-1 for j in channels]
+        population_ERP = np.average(X[channels, :, :], axis=(0, 2))
+        ax[i].plot(time, population_ERP, label=key)
+        ax[i].set_ylabel(f'{cat}'+' HFB (dB)')
+        ax[i].legend()
+        ax[i].axvline(x=0, color='k')
+ax[2].set_xlabel('Time from stimulus onset (s)')
 

@@ -169,6 +169,7 @@ class Subject:
         brain_path = self.brain_path()
         fpath = brain_path.joinpath(fname)
         visual_chan = pd.read_csv(fpath)
+        visual_chan = visual_chan.sort_values(by='latency')
         return visual_chan
     
     def low_high_chan(self, fname = 'visual_channels_BP_montage.csv'):

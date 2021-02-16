@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Dec  4 13:25:46 2020
+Created on Mon Feb 15 12:03:50 2021
 
 @author: guime
 """
-
 
 import HFB_process as hf
 import cifar_load_subject as cf
@@ -27,10 +26,6 @@ from scipy.io import loadmat,savemat
 # %matplotlib
 #%% TODO
 
-# -Check that there are output visual_data X is correct with HFB_visual (i.e. check that 
-# permutation works)
-# - Create a module for category specific electrodes
-# - Rearrange HFB module consequently
 # sub_id = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'NeLa', 'SoGi']
 
 #%% 
@@ -41,8 +36,8 @@ visual_chan_table = 'visual_channels_BP_montage.csv'
 proc = 'preproc' 
 sfreq = 250;
 # picks = ['LGRD58-LGRD59', 'LGRD60-LGRD61', 'LTo1-LTo2', 'LTo3-LTo4']
-tmin_crop = 0.050
-tmax_crop = 0.300
+tmin_crop = -0.5
+tmax_crop = 1.75
 suffix = 'preprocessed_raw'
 ext = '.fif'
 
@@ -65,12 +60,15 @@ for cat in categories:
                                     tmin_crop = tmin_crop, tmax_crop=tmax_crop)
     visual_time_series[cat] = X
 
-#%% Save dictionary
 
-fname = sub_id + '_visual_HFB_all_categories.mat'
-fpath = datadir.joinpath(fname)
+#%% Compute peak onset
 
-# Save data in Rest x Face x Place array of time series
-
-savemat(fpath, visual_time_series)
-
+cat = 'Face'
+X = visual_time_series[cat]
+nchan = X.shape[0]
+evok = np.average(X, axis=2)
+peak = np.amax(evok, axis=1)
+peak_time = [0]*nchan
+for i in range(nchan):
+    peak_time[i] = np.where(evok[i,:] == peak[i])[0][0]
+peak_max = max(peak_time)

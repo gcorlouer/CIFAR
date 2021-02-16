@@ -49,12 +49,15 @@ face_id = hf.extract_stim_id(event_id)
 place_id = hf.extract_stim_id(event_id, cat='Place')
 image_id = face_id+place_id
 
+#%% 
+
+visual_chan, effect_size = hf.detect_visual_chan(HFB_db, tmin_pr=-0.2, tmax_pr=-0, tmin_po=0.1, tmax_po=0.5, alpha=0.05)
 
 #%% 
 
 visual_populations = hf.HFB_to_visual_populations(HFB, dfelec, t_pr = -0.5, t_po = 1.75, baseline=None,
-                       preload=True, tmin_pr=-0.2, tmax_pr=0, tmin_po=0.2,
-                       tmax_po=1, alpha= 0.01)
+                       preload=True, tmin_pr=-0.2, tmax_pr=0, tmin_po=0.1,
+                       tmax_po=0.5, alpha= 0.01)
 
 #%% Plot pval series
 
