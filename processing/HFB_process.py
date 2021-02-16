@@ -19,7 +19,7 @@ from statsmodels.stats.multitest import fdrcorrection, multipletests
 from netneurotools import stats as nnstats
 
 # TODO: solve mismatch between events and epoch
-#%% Extract and epoch high frequency band envelope
+#%% Extract HFB envelope
 
 def freq_bands(l_freq=60, nband=6, band_size=20):
     bands = [l_freq+i*band_size for i in range(0, nband)]
@@ -59,6 +59,9 @@ def extract_HFB(raw, bands):
     HFB = mne.io.RawArray(HFB, raw.info)
     HFB.set_annotations(raw.annotations)
     return HFB
+
+#%% Epoching functions. In particular epochs the HFB, normalise it and dB 
+# transform it
 
 def extract_stim_id(event_id, cat = 'Face'):
     p = re.compile(cat)
@@ -126,21 +129,7 @@ def plot_HFB_response(HFB_db, stim_id, picks='LTo4'):
         plt.fill_between(time, ERP[0,:]-1.96*ERP_std[0,:], ERP[0,:]+1.96*ERP_std[0,:],
                          alpha=0.3)
 
-def epoch(HFB, raw, task='stimuli',
-                            cat='Face', duration=5, t_pr = -0.1, t_po = 1.75):
-    """Epoch HFB depending task"""
-    if task=='stimuli':
-        events, event_id = mne.events_from_annotations(raw)
-        cat_id = extract_stim_id(event_id, cat = cat)
-        epochs = epoch_HFB(HFB, raw, t_pr = t_pr, t_po = t_po)
-        epochs = epochs[cat_id].copy()
-    else:
-        events = mne.make_fixed_length_events(raw, start=10, stop=200, duration=duration)
-        epochs = mne.Epochs(HFB, events, tmin = t_pr, tmax = t_po, 
-                            baseline=None, preload=True)
-    return epochs   
-
-#%% Classify visually responsive populations
+#%% Classify visually responsive populations fom normalised HFB
 
 def sample_mean(A):
     M = np.mean(A,axis=-1) # average over sample
@@ -401,18 +390,6 @@ def HFB_to_visual_populations(HFB, dfelec, t_pr = -0.5, t_po = 1.75, baseline=No
         visual_populations['Z'].extend(dfelec['Z'].loc[dfelec['electrode_name']==chan_name_split])
         
     return visual_populations
-    
-def functional_grouping(subject, visual_cat):
-    functional_group = {'subject_id': [], 'chan_name': [], 'category': [], 'brodman': []}
-    for key in visual_cat.keys():
-        cat = visual_cat[key]
-        functional_group['subject_id'].extend([subject.name]*len(cat))
-        functional_group['chan_name'] = cat
-        functional_group['category'].extend([key]*len(cat))
-        functional_group['brodman'].extend(subject.ROIs(cat))
-        functional_group['DK'].extend(subject.ROI_DK(cat))
-    return functional_group
-
 
 def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'): 
    # Return visual channels in dictionary to save in matfile 
