@@ -9,20 +9,9 @@ Created on Fri Dec  4 13:25:46 2020
 
 import HFB_process as hf
 import cifar_load_subject as cf
-import scipy as sp
-import re 
-import numpy as np
-import mne
-import matplotlib.pyplot as plt
 import pandas as pd
 
-from pathlib import Path, PurePath
-from mne.viz import plot_filter, plot_ideal_filter
-from scipy import signal, fftpack
-from scipy import stats
-from statsmodels.stats.multitest import fdrcorrection, multipletests
-
-from scipy.io import loadmat,savemat
+from scipy.io import savemat
 
 # %matplotlib
 #%% TODO

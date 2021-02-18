@@ -343,7 +343,7 @@ def classify_retinotopic(visual_channels, group, dfelec):
     return group
 
 
-# %% Make a dictionary informative about visually responsive time series 
+# %% Make a dictionary to save visual channel table in mat file
 
 def HFB_to_visual_populations(HFB, dfelec, t_pr = -0.5, t_po = 1.75, baseline=None,
                        preload=True, tmin_pr=-0.2, tmax_pr=0, tmin_po=0.1,
@@ -408,7 +408,7 @@ def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'):
     return visual_dict 
 
 
-# %% Create category specific time series 
+# %% Create category specific time series and input for mvgc
 
 def epoch_category(HFB_visual, cat='Rest', tmin=-0.5, tmax=1.75):
     """Epoch category specific envelope"""
@@ -454,7 +454,7 @@ def visually_responsive_HFB(sub_id= 'DiAs', proc= 'preproc',
     HFB_visual = raw.copy().pick_channels(visual_chan_name)
     return HFB_visual
         
-def category_specific_HFB(HFB_visual, cat='Rest', tmin_crop = 0.5, tmax_crop=1.75) :
+def category_specific_HFB(HFB_visual, cat='Rest', tmin_crop = -0.5, tmax_crop=1.75) :
     """Return category specific visually respinsive HFB (rest, face, place) during a specific stimulus"""
     epochs, events = epoch_category(HFB_visual, cat=cat, tmin=-0.5, tmax=1.75)
     HFB = db_transform_category(epochs, events, tmin=-0.4, tmax=-0.1, t_pr=-0.5)
@@ -514,7 +514,7 @@ def order_population_indices(population_indices, ordered_channel_indices, group)
     return ordered_population_indices
 
 def order_visual_data_indices(ordered_channel_indices, HFB):
-    """Order visual HFB data indices along visual herarchy"""
+    """Order visual HFB channels indices along visual herarchy"""
     X = HFB.get_data()
     X_ordered = np.zeros_like(X)
     for idx, i in enumerate(ordered_channel_indices):
