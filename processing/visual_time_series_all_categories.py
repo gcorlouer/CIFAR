@@ -31,7 +31,7 @@ proc = 'preproc'
 sfreq = 250;
 # picks = ['LGRD58-LGRD59', 'LGRD60-LGRD61', 'LTo1-LTo2', 'LTo3-LTo4']
 tmin_crop = 0.050
-tmax_crop = 0.300
+tmax_crop = 0.200
 suffix = 'preprocessed_raw'
 ext = '.fif'
 

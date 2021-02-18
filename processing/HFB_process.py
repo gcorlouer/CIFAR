@@ -413,10 +413,10 @@ def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'):
 def epoch_category(HFB_visual, cat='Rest', tmin=-0.5, tmax=1.75):
     """Epoch category specific envelope"""
     if cat == 'Rest':
-        events_1 = mne.make_fixed_length_events(HFB_visual, id=32, start=70, 
-                                                stop=200, duration=2, first_samp=False, overlap=0.0)
+        events_1 = mne.make_fixed_length_events(HFB_visual, id=32, start=100, 
+                                                stop=156, duration=2, first_samp=False, overlap=0.0)
         events_2 = mne.make_fixed_length_events(HFB_visual, id=32, 
-                                                start=280, stop=400, duration=2, first_samp=False, overlap=0.0)
+                                                start=300, stop=356, duration=2, first_samp=False, overlap=0.0)
         
         events = np.concatenate((events_1,events_2))
         rest_id = {'Rest': 32}
@@ -450,8 +450,8 @@ def visually_responsive_HFB(sub_id= 'DiAs', proc= 'preproc',
     subject = cf.Subject(name=sub_id)
     raw = subject.load_raw_data(proc= proc, stage= stage)
     visual_chan = subject.pick_visual_chan()
-    visual_chan_name = visual_chan['chan_name'].values.tolist()
-    HFB_visual = raw.copy().pick_channels(visual_chan_name)
+    visual_chan = visual_chan['chan_name'].values.tolist()
+    HFB_visual = raw.copy().pick_channels(visual_chan)
     return HFB_visual
         
 def category_specific_HFB(HFB_visual, cat='Rest', tmin_crop = -0.5, tmax_crop=1.75) :
