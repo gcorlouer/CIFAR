@@ -60,8 +60,6 @@ ts_dict = {'data': ts, 'sfreq': sfreq}
 fname = sub_id + '_slided_category_visual_HFB.mat'
 fpath = datadir.joinpath(fname)
 
-# Save data in Rest x Face x Place array of time series
-
 savemat(fpath, ts_dict)
 
 # %% Plot evoked response of sliding window
@@ -74,32 +72,35 @@ evoked_seg = evoked[ichan, :, iseg, icat]
 time_seg = ts_time[:, iseg]
 plt.plot(time_seg, evoked_seg)
 
-# %% Compare with other method
+#%%
+cat = 'Face'
 
-X = visual_time_series['Face'] 
-time_win = visual_time_series['time']
-evok_cat = np.average(X, axis=2)
-evok_win = evok_cat[ichan, :]
-plt.plot(time_win, evok_win)
+HFB = hf.category_specific_HFB(HFB_visual, cat=cat, tmin_crop = tmin_crop,
+                                       tmax_crop=tmax_crop)
 
 
+HFB = HFB.resample(sfreq=sfreq)
+
+X = HFB.copy().get_data()
+time = HFB.times
+
+X_win, time_win = fun.slide_window(X, time, sample_start, sample_stop, step, window_size)
 
 
+# %%
+
+iwin = 0
+ichan = 3
+
+evok = np.average(X[:,ichan, 125:165], axis=0)
+evok_win = np.average(X_win[iwin,:,ichan,:], axis=0)
+
+t = time_win[0,:]
+#time[125:165]
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+plt.plot(t, evok)
+plt.plot(t, evok_win)
 
 
 
