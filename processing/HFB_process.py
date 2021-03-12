@@ -486,7 +486,7 @@ def parcellation_to_indices(visual_chan, parcellation='group'):
     if parcellation == 'DK': # adapt indexing for matlab
         for key in group:
             for i in range(len(group_indices[key])):
-                group_indices[key][i] = group_indices[key][i] + 1
+                group_indices[key][i] = group_indices[key][i]
     return group_indices
 
 def order_channel_indices(population_indices, group):

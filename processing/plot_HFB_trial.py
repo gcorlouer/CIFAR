@@ -32,7 +32,7 @@ pd.options.display.max_rows = 999
 sub_id = 'DiAs'
 visual_chan_table = 'visual_channels_BP_montage.csv'
 proc = 'preproc'
-ichan = 6 
+ichan = 2
 cat = 'Place'
 sfreq = 250;
 tmin_crop = -0.5
@@ -57,8 +57,13 @@ evok = np.average(channel, axis=1)
 time = visual_data['time']
 
 #%%  Plot evoked response
+import matplotlib
+matplotlib.rcParams.update({'font.size': 22})
 
 plt.plot(time, evok)
-plt.axvline(x=0, color = 'k')
-plt.axvline(x=latency_response, color = 'r', ls='--')
+plt.axvline(x=0, color = 'k', label= 'stimulus onset')
+plt.axvline(x=latency_response, color = 'r', ls='--', label = 'latency response')
 plt.axhline(y=0, color='k')
+plt.xlabel('Time from stimulus onset (s)')
+plt.ylabel('Amplitude (dB)')
+plt.legend()

@@ -59,14 +59,18 @@ Z_coord = visual_table['Z']
 
 #%% Compute linear regression
 
-linreg = stats.linregress(visual_response, latency)
-print(linreg)
+def regression_line(x, y):
+    linreg = stats.linregress(x, y)
+    a = linreg.slope
+    b = linreg.intercept
+    Y = a*x+b 
+    print(linreg)
+    return Y
 
-a = linreg.slope
-b = linreg.intercept
-x = range(50,400)
-y = a*x+b 
-
+Y_coord_hat = regression_line(latency, Y_coord)
+Z_coord_hat = regression_line(latency, Z_coord)
+visual_response_hat = regression_line(latency, visual_response)
+category_selectivity_hat = regression_line(latency, category_selectivity)
 #%% Correlation
 
 corr = stats.pearsonr(latency, Y_coord)
@@ -78,29 +82,36 @@ plt.rcParams.update({'font.size': 22})
 
 plt.subplot(2,2,1)
 plt.plot(latency, Y_coord, '.')
+plt.plot(latency,Y_coord_hat)
 plt.xlabel('latency response (ms)')
 plt.ylabel('Y coordinate (mm)')
 
 plt.subplot(2,2,2)
 plt.plot(latency, Z_coord, '.')
+plt.plot(latency, Z_coord_hat)
 plt.xlabel('latency response (ms)')
 plt.ylabel('Z coordinate (mm)')
 
 
 plt.subplot(2,2,3)
 plt.plot(latency, visual_response, '.')
+plt.plot(latency, visual_response_hat)
 plt.xlabel('latency response (ms)')
 plt.ylabel(' visual responsivity (db)')
 
 plt.subplot(2,2,4)
 plt.plot(latency, category_selectivity, '.')
+plt.plot(latency, category_selectivity_hat)
 plt.xlabel('latency response (ms)')
 plt.ylabel('category selectivity (dB)')
+
+plt.legend()
 
 #%%
 
 visual_table_sorted = visual_table.sort_values(by='Y')
 
+#%%
 
 
 

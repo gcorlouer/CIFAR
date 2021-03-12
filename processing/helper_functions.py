@@ -9,9 +9,34 @@ import HFB_process as hf
 import numpy as np
 import mne
 import matplotlib.pyplot as plt
-
+import cifar_load_subject as cf
 from mne.time_frequency import psd_array_multitaper
 
+#%% Concatenate dataset 
+
+def concatenate_run_dataset(sub_id = 'DiAs', proc='bipolar_montage', task = 'rest_baseline', preload = True):
+    
+    subject = cf.Subject(name=sub_id, task = task, run='1')
+    fpath = subject.dataset_path(proc=proc, suffix='BP_montage', ext='.set')
+    raw = mne.io.read_raw_eeglab(fpath, preload=preload)
+    raw_1 = raw.copy()
+    
+         
+    subject = cf.Subject(name=sub_id, task = task, run='2')
+    fpath = subject.dataset_path(proc=proc, suffix='BP_montage', ext='.set')
+    raw = mne.io.read_raw_eeglab(fpath, preload=preload)
+    raw_2 = raw.copy()
+    
+    raw_1.append([raw_2])
+    return raw_1
+    
+    
+def concatenate_task_dataset(sub_id = 'DiAs'):
+    
+    raw_rest =  concatenate_run_dataset(task='rest_baseline')
+    raw_stimuli = concatenate_run_dataset(task='stimuli')
+    raw_rest.append([raw_stimuli])
+    return raw_rest
 
 #%% PSD utilities
 
@@ -84,6 +109,26 @@ def LFP_to_dict(LFP, visual_chan, tmin=-0.5, tmax=1.75, sfreq=250):
     LFP_dict['DK_to_channel'] = DK_to_channel
     return LFP_dict
 
+#%% epoched HFB for all categories
+
+
+def ts_all_categories(HFB, sfreq=250, tmin_crop=0.050, tmax_crop=0.250):
+
+    categories = ['Rest', 'Face', 'Place']
+    ncat = len(categories)
+    ts = [0]*ncat
+    for idx, cat in enumerate(categories):
+        epochs = hf.category_specific_HFB(HFB, cat=cat, tmin_crop=tmin_crop,
+                                       tmax_crop=tmax_crop)
+        epochs = epochs.resample(sfreq=sfreq)
+        X = epochs.get_data().copy()
+        time = epochs.times
+        ts[idx] = X
+
+    ts = np.stack(ts)
+    (ncat, ntrial, nchan, nobs) = ts.shape
+    ts = np.transpose(ts, (2, 3, 1, 0))
+    return ts, time
 # %% Sliding window analysis
 
 def event_related_time_to_sample(time, t):
@@ -226,3 +271,27 @@ def category_slided_ts(HFB_visual, visual_chan, categories=['Rest', 'Face', 'Pla
     ts = np.transpose(ts, (3, 4, 2, 1, 0))
     ts_time = np.transpose(ts_time, (1, 0))
     return ts, ts_time
+
+#%% GC analysis
+
+
+def GC_to_TE(F, sfreq=250):
+    sample_to_bits = 1/np.log(2)
+    TE = 1/2*sample_to_bits*sfreq*F
+    return TE
+
+# def plot_GC(TE, populations, cmap='YlGnBu', vmin=0, xticklabels='auto', yticklabels='auto',
+#             ):
+#     TE_max = np.max(TE)
+#     plt.subplot(2,2, icat+1)
+#     sns.heatmap(TE[:,:,icat], vmin=vmin, vmax=TE_max, xticklabels=xticklabels,
+#                     yticklabels=yticklabels, cmap=cmap)
+#     for y in range(TE.shape[0]):
+#         for x in range(TE.shape[1]):
+#             if sig_sorted[y,x,icat] == 1:
+#                 plt.text(x + 0.5, y + 0.5, '*',
+#                          horizontalalignment='center', verticalalignment='center',
+#                          color='r')
+#             else:
+#                 continue
+#     plt.title('TE ' + categories[icat] + ' (bits/s)')

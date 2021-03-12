@@ -25,13 +25,13 @@ from mne.time_frequency import psd_array_multitaper
 # sub_id = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'NeLa', 'SoGi']
 sub_id = 'DiAs'
 proc = 'preproc'
-sfreq = 500
+sfreq = 250
 adaptive = True
 duration = 60
 tmax = duration
-sfreq = 500
+sfreq = 250
 fmin = 0.1
-fmax = 40
+fmax = 125
 bandwidth = 0.5
 font = {'size':20}
 #%% Load continuous HFB 
@@ -85,7 +85,7 @@ def plot_psd(psd, freqs, average=True, label='PSD Rest'):
     else:
         for i in range(nchan):
             plt.plot(freqs, psd[i, :])
-            plt.xscale('log')
+            plt.xscale('linear')
             plt.xlabel('Frequency (Hz)', fontdict=font)
             plt.ylabel('Power (dB)', fontdict=font)
             for i in range(len(bands)):
