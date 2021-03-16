@@ -19,27 +19,57 @@ from statsmodels.stats.multitest import fdrcorrection, multipletests
 from netneurotools import stats as nnstats
 
 # TODO: solve mismatch between events and epoch
-#%% Extract HFB envelope
+# %% Extract HFB envelope
+
 
 def freq_bands(l_freq=60, nband=6, band_size=20):
+    """
+    Create a list of 20Hz spaced frequency from [60, 160]Hz (high gamma)
+    These frequencies will be used to banpass the iEEG signal for 
+    high frequency envelope extraction
+    
+    Parameters
+    ----------
+    l_freq: int, optional
+            lowest frequency in Hz
+    nband: int, optional
+           Number of frequency bands
+    band_size: int, optional
+                size of frequency band in Hz
+    
+    Returns
+    -------
+    bands: list
+            List of frequency bands
+            
+    """
     bands = [l_freq+i*band_size for i in range(0, nband)]
     return bands
 
-def extract_envelope(raw, l_freq=60, band_size=20):
-    raw_band = raw.copy().filter(l_freq=l_freq, h_freq=l_freq+band_size, 
-                                 phase='minimum', filter_length='auto',
-                                 l_trans_bandwidth= 10, h_trans_bandwidth= 10, 
+
+def extract_envelope(raw, l_freq=60, band_size=20, l_trans_bandwidth= 10, 
+                     h_trans_bandwidth= 10, filter_length='auto', phase='minimum'):
+    """
+    Extract the envelope of a bandpass signal with minimum phase, blackman 
+    window. The filter is constructed from MNE python filter function 
+    
+    """
+    raw_band = raw.copy().filter(l_freq=l_freq, h_freq=l_freq+band_size,
+                                 phase=phase, filter_length=filter_length,
+                                 l_trans_bandwidth= l_trans_bandwidth, 
+                                 h_trans_bandwidth= h_trans_bandwidth,
                                      fir_window='blackman')
     envelope = raw_band.copy().apply_hilbert(envelope=True).get_data()
-    return envelope 
+    return envelope
+
 
 def mean_normalise(envelope):
     envelope_mean = np.mean(envelope, axis=1)
     envelope_norm = np.divide(envelope, envelope_mean[:,np.newaxis])
     return envelope_norm 
 
+
 def extract_HFB(raw, bands):
-    
     nobs = len(raw.times)
     nchan = len(raw.info['ch_names'])
     nband = len(bands)
@@ -50,18 +80,18 @@ def extract_HFB(raw, bands):
     for band in bands:
         envelope = extract_envelope(raw, l_freq=band, band_size=band_size)
         env_norm = mean_normalise(envelope)
-        HFB = HFB + env_norm
-        mean_amplitude = mean_amplitude + np.mean(envelope, axis=1)
+        HFB += env_norm
+        mean_amplitude += np.mean(envelope, axis=1)
 
-    HFB = HFB/nband # average over all bands
-    HFB = HFB * mean_amplitude[:,np.newaxis] # multiply by mean amplitude to bring back to volts
-    HFB = np.nan_to_num(HFB) # replace nan with zeros
+    HFB = HFB/nband  # average over all bands
+    HFB = HFB * mean_amplitude[:,np.newaxis]  # Bring back to volts
+    HFB = np.nan_to_num(HFB)  # replace nan with zeros
     HFB = mne.io.RawArray(HFB, raw.info)
     HFB.set_annotations(raw.annotations)
     return HFB
 
-#%% Epoching functions. In particular epochs the HFB, normalise it and dB 
-# transform it
+#%% Normalise with baseline, log transform and epoch HFB
+
 
 def extract_stim_id(event_id, cat = 'Face'):
     p = re.compile(cat)
@@ -71,20 +101,22 @@ def extract_stim_id(event_id, cat = 'Face'):
             stim_id.append(key)
     return stim_id 
 
+
 def epoch_HFB(HFB, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
     events, event_id = mne.events_from_annotations(HFB) 
     epochs = mne.Epochs(HFB, events, event_id= event_id, tmin=t_pr, 
                     tmax=t_po, baseline=baseline,preload=preload)
     return epochs
 
-def extract_baseline(epochs, tmin=-0.4, tmax=0):
+
+def extract_baseline(epochs, tmin=-0.3, tmax=-0.1):
     baseline = epochs.copy().crop(tmin=tmin, tmax=tmax) # Extract prestimulus baseline
     baseline = baseline.get_data()
-    baseline = np.mean(baseline,axis=(0,2)) # average over prestimulus and trials
+    baseline = np.mean(baseline, axis=(0,2)) # average over prestimulus and trials
     return baseline 
 
 
-def db_transform(epochs, tmin=-0.4, tmax=0, t_pr = -0.5):
+def db_transform(epochs, tmin=-0.3, tmax=-0.1, t_pr = -0.5):
     events = epochs.events
     event_id = epochs.event_id
     del event_id['boundary'] # Drop boundary event
@@ -104,12 +136,14 @@ def log_transform(epochs, picks):
     log_HFB = np.log(data)
     return log_HFB
 
+
 def HFB_to_db(HFB, t_pr = -0.5, t_po = 1.75, baseline=None,
                        preload=True, tmin=-0.4, tmax=-0.1):
     epochs = epoch_HFB(HFB, t_pr = t_pr, t_po = t_po, baseline=baseline,
                        preload=preload)
     HFB_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
     return HFB_db
+
 
 def raw_to_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
                        preload=True, tmin=-0.4, tmax=-0.1):
@@ -119,15 +153,16 @@ def raw_to_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
     HFB_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
     return HFB_db
 
+
 def plot_HFB_response(HFB_db, stim_id, picks='LTo4'):
-        evok = HFB_db[stim_id].copy().pick(picks).average()
-        evok_std = HFB_db[stim_id].copy().pick(picks).standard_error()
-        ERP = evok.data
-        ERP_std = evok_std.data
-        time = HFB_db.times
-        plt.plot(time, ERP[0,:])
-        plt.fill_between(time, ERP[0,:]-1.96*ERP_std[0,:], ERP[0,:]+1.96*ERP_std[0,:],
-                         alpha=0.3)
+    evok = HFB_db[stim_id].copy().pick(picks).average()
+    evok_std = HFB_db[stim_id].copy().pick(picks).standard_error()
+    ERP = evok.data
+    ERP_std = evok_std.data
+    time = HFB_db.times
+    plt.plot(time, ERP[0,:])
+    plt.fill_between(time, ERP[0,:]-1.96*ERP_std[0,:], ERP[0,:]+1.96*ERP_std[0,:],
+                     alpha=0.3)
 
 #%% Classify visually responsive populations fom normalised HFB
 
@@ -136,6 +171,7 @@ def sample_mean(A):
     # Get rid of infinity 
     M[M==-inf] = 0
     return M
+
 
 def crop_HFB(HFB_db, tmin=-0.5, tmax=-0.05):
     A = HFB_db.copy().crop(tmin=tmin, tmax=tmax).get_data()

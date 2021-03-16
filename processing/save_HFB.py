@@ -6,7 +6,7 @@ Created on Wed Nov 18 16:39:32 2020
 @author: guime
 """
 
-
+# This script extract HFB from bipolar LFP and save file as .fif extension.
 
 import HFB_process as hf
 import cifar_load_subject as cf

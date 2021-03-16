@@ -6,7 +6,9 @@ Created on Fri Nov  6 12:23:38 2020
 @author: guime
 """
 
-# Load preprocess .mat data from noisetoolbox and save it in a raw structure
+# This script drop the bad channels from BP montage and save the resulting 
+# data in preprecocessed_raw file which is LFP of bipolar montage. The raw extension
+# is there for MNE compatibility.
 
 import HFB_process
 import cifar_load_subject
