@@ -21,9 +21,8 @@ from netneurotools import stats as nnstats
 # TODO: solve mismatch between events and epoch
 # %% Extract HFB envelope
 
-def extract_HFB(raw, l_freq=60.0, nband=6, band_size=20.0,
-                l_trans_bandwidth= 10.0,h_trans_bandwidth= 10.0,
-                filter_length='auto', phase='minimum'):
+def extract_HFB(raw, l_freq=60.0, nband=6, band_size=20.0, l_trans_bandwidth= 10.0,
+                h_trans_bandwidth= 10.0, filter_length='auto', phase='minimum'):
     """
     Extract the high frequency broadband (HFB) from LFP iEEG signal.
     ----------
@@ -46,7 +45,7 @@ def extract_HFB(raw, l_freq=60.0, nband=6, band_size=20.0,
     """
     nobs = len(raw.times)
     nchan = len(raw.info['ch_names'])
-    bands = freq_bands(l_freq=60.0, nband=6, band_size=20.0)
+    bands = freq_bands(l_freq=l_freq, nband=nband, band_size=band_size)
     HFB = np.zeros(shape=(nchan, nobs))
     mean_amplitude = np.zeros(shape=(nchan,))
     
@@ -140,9 +139,29 @@ def mean_normalise(envelope):
     return envelope_norm
 #%% Normalise with baseline, log transform and epoch HFB
 
-def raw_to_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
-                       preload=True, tmin=-0.4, tmax=-0.1):
-    HFB = extract_HFB(raw, bands)
+def raw_to_HFB_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_pr = -0.5,
+                  l_trans_bandwidth= 10.0, h_trans_bandwidth= 10.0, 
+                  filter_length='auto', phase='minimum', t_po = 1.75, 
+                  baseline=None, preload=True, tmin=-0.4, tmax=-0.1):
+    """
+    Compute HFB in decibel from raw LFP
+    ----------
+    Parameters
+    ----------
+    raw: MNE raw object
+        The raw LFP
+    t_po: float, optional
+        post stimulus epoch stop
+    t_pr: float
+        pre stimulus epoch starts
+    tmin: float
+        baseline starts
+    tmax: float
+        baseline stops
+    """
+    HFB = extract_HFB(raw, l_freq=l_freq, nband=nband, band_size=band_size,
+                l_trans_bandwidth= l_trans_bandwidth, h_trans_bandwidth= h_trans_bandwidth,
+                filter_length=filter_length, phase=phase)
     epochs = epoch_HFB(HFB, t_pr = t_pr, t_po = t_po, baseline=baseline,
                        preload=preload)
     HFB_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
@@ -150,6 +169,9 @@ def raw_to_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
 
 
 def epoch_HFB(HFB, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
+    """
+    Epoch stimulus condition HFB using MNE Epochs function
+    """
     events, event_id = mne.events_from_annotations(HFB) 
     epochs = mne.Epochs(HFB, events, event_id= event_id, tmin=t_pr, 
                     tmax=t_po, baseline=baseline,preload=preload)
@@ -157,6 +179,10 @@ def epoch_HFB(HFB, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
 
 
 def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_pr = -0.5):
+    """
+    Normalise HFB with pre stimulus baseline and log transform for result in dB
+    Allows for cross channel comparison via a single scale.
+    """
     events = epochs.events
     event_id = epochs.event_id
     del event_id['boundary'] # Drop boundary event
@@ -171,6 +197,9 @@ def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_pr = -0.5):
 
 
 def extract_baseline(epochs, tmin=-0.4, tmax=-0.1):
+    """
+    Extract baseline by averaging prestimulus accross time and trials
+    """
     baseline = epochs.copy().crop(tmin=tmin, tmax=tmax) # Extract prestimulus baseline
     baseline = baseline.get_data()
     baseline = np.mean(baseline, axis=(0,2)) # average over time and trials
