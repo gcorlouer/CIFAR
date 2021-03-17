@@ -1,12 +1,25 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Mon Jun 29 11:09:57 2020
 
+This python script is for code review. I have commented were to begin and were
+to stop review.
+
+This is my first review and do not consider myself an expert in python or 
+software engineering so feedback are very welcome even ones that might seem
+very elementary.
+
+Thank you very much for your most welcome help ! 
 @author: guime
+
+
 """
 
-
+"""
+--------------------------------------------------------------------------------
+BEGIN REVIEW HERE
+--------------------------------------------------------------------------------
+"""
+# %% Import libraries
 import mne 
 import numpy as np
 import re
@@ -18,9 +31,7 @@ from numpy import inf
 from statsmodels.stats.multitest import fdrcorrection, multipletests
 from netneurotools import stats as nnstats
 
-# TODO: solve mismatch between events and epoch
 # %% Extract HFB envelope
-
 def extract_HFB(raw, l_freq=60.0, nband=6, band_size=20.0, l_trans_bandwidth= 10.0,
                 h_trans_bandwidth= 10.0, filter_length='auto', phase='minimum'):
     """
@@ -137,6 +148,12 @@ def mean_normalise(envelope):
     envelope_mean = np.mean(envelope, axis=1)
     envelope_norm = np.divide(envelope, envelope_mean[:,np.newaxis])
     return envelope_norm
+
+"""
+--------------------------------------------------------------------------------
+STOP REVIEW HERE
+--------------------------------------------------------------------------------
+"""
 #%% Normalise with baseline, log transform and epoch HFB
 
 def raw_to_HFB_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_pr = -0.5,
