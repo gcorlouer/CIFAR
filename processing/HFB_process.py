@@ -156,7 +156,7 @@ def epoch_HFB(HFB, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
     return epochs
 
 
-def db_transform(epochs, tmin=-0.3, tmax=-0.1, t_pr = -0.5):
+def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_pr = -0.5):
     events = epochs.events
     event_id = epochs.event_id
     del event_id['boundary'] # Drop boundary event
@@ -170,10 +170,10 @@ def db_transform(epochs, tmin=-0.3, tmax=-0.1, t_pr = -0.5):
     return HFB
 
 
-def extract_baseline(epochs, tmin=-0.3, tmax=-0.1):
+def extract_baseline(epochs, tmin=-0.4, tmax=-0.1):
     baseline = epochs.copy().crop(tmin=tmin, tmax=tmax) # Extract prestimulus baseline
     baseline = baseline.get_data()
-    baseline = np.mean(baseline, axis=(0,2)) # average over prestimulus and trials
+    baseline = np.mean(baseline, axis=(0,2)) # average over time and trials
     return baseline 
 
 
