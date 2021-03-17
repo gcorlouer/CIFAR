@@ -140,14 +140,13 @@ def mean_normalise(envelope):
     return envelope_norm
 #%% Normalise with baseline, log transform and epoch HFB
 
-
-def extract_stim_id(event_id, cat = 'Face'):
-    p = re.compile(cat)
-    stim_id = []
-    for key in event_id.keys():
-        if p.match(key):
-            stim_id.append(key)
-    return stim_id 
+def raw_to_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
+                       preload=True, tmin=-0.4, tmax=-0.1):
+    HFB = extract_HFB(raw, bands)
+    epochs = epoch_HFB(HFB, t_pr = t_pr, t_po = t_po, baseline=baseline,
+                       preload=preload)
+    HFB_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
+    return HFB_db
 
 
 def epoch_HFB(HFB, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
@@ -155,13 +154,6 @@ def epoch_HFB(HFB, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
     epochs = mne.Epochs(HFB, events, event_id= event_id, tmin=t_pr, 
                     tmax=t_po, baseline=baseline,preload=preload)
     return epochs
-
-
-def extract_baseline(epochs, tmin=-0.3, tmax=-0.1):
-    baseline = epochs.copy().crop(tmin=tmin, tmax=tmax) # Extract prestimulus baseline
-    baseline = baseline.get_data()
-    baseline = np.mean(baseline, axis=(0,2)) # average over prestimulus and trials
-    return baseline 
 
 
 def db_transform(epochs, tmin=-0.3, tmax=-0.1, t_pr = -0.5):
@@ -178,39 +170,12 @@ def db_transform(epochs, tmin=-0.3, tmax=-0.1, t_pr = -0.5):
     return HFB
 
 
-def log_transform(epochs, picks):
-    # transform into log normal distribution, should also work with raw structure
-    data = epochs.copy().pick(picks=picks).get_data()
-    log_HFB = np.log(data)
-    return log_HFB
+def extract_baseline(epochs, tmin=-0.3, tmax=-0.1):
+    baseline = epochs.copy().crop(tmin=tmin, tmax=tmax) # Extract prestimulus baseline
+    baseline = baseline.get_data()
+    baseline = np.mean(baseline, axis=(0,2)) # average over prestimulus and trials
+    return baseline 
 
-
-def HFB_to_db(HFB, t_pr = -0.5, t_po = 1.75, baseline=None,
-                       preload=True, tmin=-0.4, tmax=-0.1):
-    epochs = epoch_HFB(HFB, t_pr = t_pr, t_po = t_po, baseline=baseline,
-                       preload=preload)
-    HFB_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
-    return HFB_db
-
-
-def raw_to_HFB_db(raw, bands, t_pr = -0.5, t_po = 1.75, baseline=None,
-                       preload=True, tmin=-0.4, tmax=-0.1):
-    HFB = extract_HFB(raw, bands)
-    epochs = epoch_HFB(HFB, t_pr = t_pr, t_po = t_po, baseline=baseline,
-                       preload=preload)
-    HFB_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
-    return HFB_db
-
-
-def plot_HFB_response(HFB_db, stim_id, picks='LTo4'):
-    evok = HFB_db[stim_id].copy().pick(picks).average()
-    evok_std = HFB_db[stim_id].copy().pick(picks).standard_error()
-    ERP = evok.data
-    ERP_std = evok_std.data
-    time = HFB_db.times
-    plt.plot(time, ERP[0,:])
-    plt.fill_between(time, ERP[0,:]-1.96*ERP_std[0,:], ERP[0,:]+1.96*ERP_std[0,:],
-                     alpha=0.3)
 
 #%% Classify visually responsive populations fom normalised HFB
 
@@ -491,6 +456,28 @@ def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'):
                    event_id = event_id)
     return visual_dict 
 
+def HFB_to_db(HFB, t_pr = -0.5, t_po = 1.75, baseline=None,
+                       preload=True, tmin=-0.4, tmax=-0.1):
+    epochs = epoch_HFB(HFB, t_pr = t_pr, t_po = t_po, baseline=baseline,
+                       preload=preload)
+    HFB_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
+    return HFB_db
+
+
+def log_transform(epochs, picks):
+    # transform into log normal distribution, should also work with raw structure
+    data = epochs.copy().pick(picks=picks).get_data()
+    log_HFB = np.log(data)
+    return log_HFB
+
+
+def extract_stim_id(event_id, cat = 'Face'):
+    p = re.compile(cat)
+    stim_id = []
+    for key in event_id.keys():
+        if p.match(key):
+            stim_id.append(key)
+    return stim_id 
 
 # %% Create category specific time series and input for mvgc
 
@@ -643,3 +630,13 @@ def HFB_to_visual_data(HFB, visual_chan, sfreq=250, cat='Rest', tmin_crop = 0.5,
     HFB = HFB.resample(sfreq=sfreq)
     X, visual_data = category_specific_HFB_to_visual_data(HFB, visual_chan)
     return X, visual_data
+
+def plot_HFB_response(HFB_db, stim_id, picks='LTo4'):
+    evok = HFB_db[stim_id].copy().pick(picks).average()
+    evok_std = HFB_db[stim_id].copy().pick(picks).standard_error()
+    ERP = evok.data
+    ERP_std = evok_std.data
+    time = HFB_db.times
+    plt.plot(time, ERP[0,:])
+    plt.fill_between(time, ERP[0,:]-1.96*ERP_std[0,:], ERP[0,:]+1.96*ERP_std[0,:],
+                     alpha=0.3)
