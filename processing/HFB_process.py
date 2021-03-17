@@ -40,7 +40,7 @@ def extract_HFB(raw, l_freq=60.0, nband=6, band_size=20.0, l_trans_bandwidth= 10
     Parameters
     ----------
     raw: MNE raw object
-        the LFP data to be filtered (in MNE python raw structure)
+        the LFP data to be filtered 
     l_freq: float, optional
             lowest frequency in Hz
     nband: int, optional
