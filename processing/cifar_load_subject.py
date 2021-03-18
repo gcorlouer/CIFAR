@@ -139,7 +139,7 @@ class Subject:
         return raw
     
     def load_raw_data(self, proc= 'preproc', stage= '_BP_montage_HFB_raw.fif'):  
-        irir = self.processing_stage_path(proc=proc)
+        datadir = self.processing_stage_path(proc=proc)
         sub = self.name
         fname = sub + stage
         fpath = datadir.joinpath(fname)
