@@ -26,8 +26,6 @@ from statsmodels.stats.multitest import fdrcorrection, multipletests
 
 pd.options.display.max_rows = 999
 
-#%% 
-
 #%% Parameters 
 sub_id = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'NeLa', 'SoGi']
 proc = 'preproc' # Line noise removed

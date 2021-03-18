@@ -139,9 +139,9 @@ def mean_normalise(envelope):
     return envelope_norm
 #%% Normalise with baseline, log transform and epoch hfb
 
-def raw_to_hfb_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_pr = -0.5,
+def raw_to_hfb_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_prestim = -0.5,
                   l_trans_bandwidth= 10.0, h_trans_bandwidth= 10.0, 
-                  filter_length='auto', phase='minimum', t_po = 1.75, 
+                  filter_length='auto', phase='minimum', t_postim = 1.75, 
                   baseline=None, preload=True, tmin=-0.4, tmax=-0.1):
     """
     Compute hfb in decibel from raw LFP
@@ -150,9 +150,9 @@ def raw_to_hfb_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_pr = -0.5,
     ----------
     raw: MNE raw object
         The raw LFP
-    t_po: float, optional
+    t_postim: float, optional
         post stimulus epoch stop
-    t_pr: float
+    t_prestim: float
         pre stimulus epoch starts
     tmin: float
         baseline starts
@@ -162,23 +162,23 @@ def raw_to_hfb_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_pr = -0.5,
     hfb = extract_hfb(raw, l_freq=l_freq, nband=nband, band_size=band_size,
                 l_trans_bandwidth= l_trans_bandwidth, h_trans_bandwidth= h_trans_bandwidth,
                 filter_length=filter_length, phase=phase)
-    epochs = epoch_hfb(hfb, t_pr = t_pr, t_po = t_po, baseline=baseline,
+    epochs = epoch_hfb(hfb, t_prestim = t_prestim, t_postim = t_postim, baseline=baseline,
                        preload=preload)
-    hfb_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
+    hfb_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_prestim=t_prestim)
     return hfb_db
 
 
-def epoch_hfb(hfb, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
+def epoch_hfb(hfb, t_prestim = -0.5, t_postim = 1.75, baseline=None, preload=True):
     """
     Epoch stimulus condition hfb using MNE Epochs function
     """
     events, event_id = mne.events_from_annotations(hfb) 
-    epochs = mne.Epochs(hfb, events, event_id= event_id, tmin=t_pr, 
-                    tmax=t_po, baseline=baseline,preload=preload)
+    epochs = mne.Epochs(hfb, events, event_id= event_id, tmin=t_prestim, 
+                    tmax=t_postim, baseline=baseline,preload=preload)
     return epochs
 
 
-def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_pr = -0.5):
+def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_prestim = -0.5):
     """
     Normalise hfb with pre stimulus baseline and log transform for result in dB
     Allows for cross channel comparison via a single scale.
@@ -192,7 +192,7 @@ def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_pr = -0.5):
     A = np.nan_to_num(A)
     A = 10*np.log10(A) # convert to db
     hfb = mne.EpochsArray(A, epochs.info, events=events, 
-                             event_id=event_id, tmin=t_pr) 
+                             event_id=event_id, tmin=t_prestim) 
     return hfb
 
 
@@ -250,11 +250,21 @@ def detect_visual_chan(hfb_db, tmin_prestim=-0.4, tmax_prestim=-0.1,tmin_postim=
 
 
 def crop_hfb(hfb_db, tmin=-0.5, tmax=-0.05):
+    """
+    crop hfb between over [tmin tmax].
+    Input : MNE raw object
+    Return: array
+    """
     A = hfb_db.copy().crop(tmin=tmin, tmax=tmax).get_data()
     return A
 
 
 def crop_stim_hfb(hfb_db, stim_id, tmin=-0.5, tmax=-0.05):
+    """
+    crop condition specific hfb between over [tmin tmax].
+    Input : MNE raw object
+    Return: array
+    """
     A = hfb_db[stim_id].copy().crop(tmin=tmin, tmax=tmax).get_data()
     return A
 
@@ -274,7 +284,22 @@ def multiple_perm_test(A_postim, A_prestim, nchans, alpha=0.05):
 
 
 def multiple_wilcoxon_test(A_postim, A_prestim, zero_method='pratt', alternative = 'greater', alpha=0.05):
-    """Wilcoxon test for visual responsivity"""
+    """
+    Wilcoxon test hypothesis of no difference between prestimulus and postimulus amplitude
+    Correct for multilple hypothesis test.
+    ----------
+    Parameters
+    ----------
+    A_postim: (...,times) array
+            Postimulus amplitude
+    A_prestim: (...,times) array
+                Presimulus amplitude
+    alpha: float
+        significance threshold to reject the null
+    From scipy.stats.wilcoxon:
+    alternative: {“two-sided”, “greater”, “less”}, optional
+    zero_method: {“pratt”, “wilcox”, “zsplit”}, optional
+    """
     A_postim = np.mean(A_postim, axis=-1)
     A_prestim = np.mean(A_prestim, axis=-1)
     # Iniitialise inflated p values
@@ -309,7 +334,9 @@ def multiple_t_test(A_postim, A_prestim, nchans, alpha=0.05):
 
 
 def cohen_d(x, y):
-    
+    """
+    Compute cohen d effect size between 1D array x and y
+    """
     n1 = np.size(x)
     n2 = np.size(y)
     m1 = np.mean(x)
@@ -458,12 +485,12 @@ def classify_retinotopic(visual_channels, group, dfelec):
 
 # %% Make a dictionary to save visual channel table in mat file
 
-def hfb_to_visual_populations(hfb, dfelec, t_pr = -0.5, t_po = 1.75, baseline=None,
+def hfb_to_visual_populations(hfb, dfelec, t_prestim = -0.5, t_postim = 1.75, baseline=None,
                        preload=True, tmin_prestim=-0.2, tmax_prestim=0, tmin_postim=0.1,
                        tmax_postim=0.5, alpha= 0.01):
     
     # Extract and normalise hfb
-    hfb_db = hfb_to_db(hfb, t_pr = t_pr, t_po = t_po, baseline=None,
+    hfb_db = hfb_to_db(hfb, t_prestim = t_prestim, t_postim = t_postim, baseline=None,
                        preload=True, tmin=tmin_prestim, tmax=tmax_prestim)
     events, event_id = mne.events_from_annotations(hfb)
     face_id = extract_stim_id(event_id, cat = 'Face')
@@ -520,11 +547,11 @@ def make_visual_chan_dictionary(df_visual, raw, hfb, epochs, sub='DiAs'):
                    event_id = event_id)
     return visual_dict 
 
-def hfb_to_db(hfb, t_pr = -0.5, t_po = 1.75, baseline=None,
+def hfb_to_db(hfb, t_prestim = -0.5, t_postim = 1.75, baseline=None,
                        preload=True, tmin=-0.4, tmax=-0.1):
-    epochs = epoch_hfb(hfb, t_pr = t_pr, t_po = t_po, baseline=baseline,
+    epochs = epoch_hfb(hfb, t_prestim = t_prestim, t_postim = t_postim, baseline=baseline,
                        preload=preload)
-    hfb_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
+    hfb_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_prestim=t_prestim)
     return hfb_db
 
 
@@ -567,7 +594,7 @@ def epoch_category(hfb_visual, cat='Rest', tmin=-0.5, tmax=1.75):
         events = epochs.events
     return epochs, events
 
-def db_transform_category(epochs, events, event_id=None, tmin=-0.4, tmax=-0.1, t_pr=-0.5):
+def db_transform_category(epochs, events, event_id=None, tmin=-0.4, tmax=-0.1, t_prestim=-0.5):
     """DB transform category specific epoched envelope to get closer to gaussianity"""
     baseline = extract_baseline(epochs, tmin=tmin, tmax=tmax)
     A = epochs.get_data()
@@ -575,7 +602,7 @@ def db_transform_category(epochs, events, event_id=None, tmin=-0.4, tmax=-0.1, t
     A = np.nan_to_num(A)
     A = 10*np.log10(A) # convert to db
     hfb = mne.EpochsArray(A, epochs.info, events=events, 
-                             event_id=event_id, tmin=t_pr) 
+                             event_id=event_id, tmin=t_prestim) 
     return hfb
 
 
@@ -592,7 +619,7 @@ def visually_responsive_hfb(sub_id= 'DiAs', proc= 'preproc',
 def category_specific_hfb(hfb_visual, cat='Rest', tmin_crop = -0.5, tmax_crop=1.75) :
     """Return category specific visually respinsive hfb (rest, face, place) during a specific stimulus"""
     epochs, events = epoch_category(hfb_visual, cat=cat, tmin=-0.5, tmax=1.75)
-    hfb = db_transform_category(epochs, events, tmin=-0.4, tmax=-0.1, t_pr=-0.5)
+    hfb = db_transform_category(epochs, events, tmin=-0.4, tmax=-0.1, t_prestim=-0.5)
     hfb = hfb.crop(tmin=tmin_crop, tmax=tmax_crop)
     return hfb 
         # Get data and permute into hierarchical order
