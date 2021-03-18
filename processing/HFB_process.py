@@ -242,8 +242,10 @@ def detect_visual_chan(hfb_db, tmin_prestim=-0.4, tmax_prestim=-0.1,tmin_postim=
     """
     A_prestim = crop_hfb(hfb_db, tmin=tmin_prestim, tmax=tmax_prestim)
     A_postim = crop_hfb(hfb_db, tmin=tmin_postim, tmax=tmax_postim)
-    nchans = len(hfb_db.info['ch_names'])
-    reject, pval_correct, tstat = multiple_wilcoxon_test(A_postim, A_prestim, nchans, alpha=alpha, zero_method=zero_method, alternative=alternative)
+    reject, pval_correct, tstat = multiple_wilcoxon_test(A_postim, A_prestim,
+                                                         alpha=alpha, 
+                                                         zero_method=zero_method,
+                                                         alternative=alternative)
     visual_responsivity = compute_visual_responsivity(A_postim, A_prestim)
     visual_chan, effect_size = visual_chans_stats(reject, visual_responsivity, hfb_db)
     return visual_chan, effect_size
