@@ -19,12 +19,12 @@ from statsmodels.stats.multitest import fdrcorrection, multipletests
 from netneurotools import stats as nnstats
 
 # TODO: solve mismatch between events and epoch
-# %% Extract HFB envelope
+# %% Extract hfb envelope
 
-def extract_HFB(raw, l_freq=60.0, nband=6, band_size=20.0, l_trans_bandwidth= 10.0,
+def extract_hfb(raw, l_freq=60.0, nband=6, band_size=20.0, l_trans_bandwidth= 10.0,
                 h_trans_bandwidth= 10.0, filter_length='auto', phase='minimum'):
     """
-    Extract the high frequency broadband (HFB) from LFP iEEG signal.
+    Extract the high frequency broadband (hfb) from LFP iEEG signal.
     ----------
     Parameters
     ----------
@@ -40,30 +40,30 @@ def extract_HFB(raw, l_freq=60.0, nband=6, band_size=20.0, l_trans_bandwidth= 10
     -------
     Returns
     -------
-    HFB: MNE raw object
+    hfb: MNE raw object
         The high frequency broadband
     """
     nobs = len(raw.times)
     nchan = len(raw.info['ch_names'])
     bands = freq_bands(l_freq=l_freq, nband=nband, band_size=band_size)
-    HFB = np.zeros(shape=(nchan, nobs))
+    hfb = np.zeros(shape=(nchan, nobs))
     mean_amplitude = np.zeros(shape=(nchan,))
     
     for band in bands:
         # extract band specific envelope
         envelope = extract_envelope(raw, l_freq=band, band_size=band_size)
-    # HFB is weighted average of bands specific envelope over high gamma
+    # hfb is weighted average of bands specific envelope over high gamma
         env_norm = mean_normalise(envelope)
-        HFB += env_norm
+        hfb += env_norm
         mean_amplitude += np.mean(envelope, axis=1)
-    HFB = HFB/nband
-    # Convert HFB in volts
-    HFB = HFB * mean_amplitude[:,np.newaxis]
-    HFB = np.nan_to_num(HFB) # convert NaN to 0
+    hfb = hfb/nband
+    # Convert hfb in volts
+    hfb = hfb * mean_amplitude[:,np.newaxis]
+    hfb = np.nan_to_num(hfb) # convert NaN to 0
     # Create Raw object for further MNE processing
-    HFB = mne.io.RawArray(HFB, raw.info)
-    HFB.set_annotations(raw.annotations)
-    return HFB
+    hfb = mne.io.RawArray(hfb, raw.info)
+    hfb.set_annotations(raw.annotations)
+    return hfb
 
 def freq_bands(l_freq=60.0, nband=6, band_size=20.0):
     """
@@ -121,7 +121,7 @@ def extract_envelope(raw, l_freq=60.0, band_size=20.0, l_trans_bandwidth= 10.0,
 
 def mean_normalise(envelope):
     """
-    Normalise the envelope by its mean. Useful for extracting HFB which is a
+    Normalise the envelope by its mean. Useful for extracting hfb which is a
     weighted average of each envelope accross 20Hz frequency bands.
     ----------
     Parameters
@@ -137,14 +137,14 @@ def mean_normalise(envelope):
     envelope_mean = np.mean(envelope, axis=1)
     envelope_norm = np.divide(envelope, envelope_mean[:,np.newaxis])
     return envelope_norm
-#%% Normalise with baseline, log transform and epoch HFB
+#%% Normalise with baseline, log transform and epoch hfb
 
-def raw_to_HFB_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_pr = -0.5,
+def raw_to_hfb_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_pr = -0.5,
                   l_trans_bandwidth= 10.0, h_trans_bandwidth= 10.0, 
                   filter_length='auto', phase='minimum', t_po = 1.75, 
                   baseline=None, preload=True, tmin=-0.4, tmax=-0.1):
     """
-    Compute HFB in decibel from raw LFP
+    Compute hfb in decibel from raw LFP
     ----------
     Parameters
     ----------
@@ -159,28 +159,28 @@ def raw_to_HFB_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_pr = -0.5,
     tmax: float
         baseline stops
     """
-    HFB = extract_HFB(raw, l_freq=l_freq, nband=nband, band_size=band_size,
+    hfb = extract_hfb(raw, l_freq=l_freq, nband=nband, band_size=band_size,
                 l_trans_bandwidth= l_trans_bandwidth, h_trans_bandwidth= h_trans_bandwidth,
                 filter_length=filter_length, phase=phase)
-    epochs = epoch_HFB(HFB, t_pr = t_pr, t_po = t_po, baseline=baseline,
+    epochs = epoch_hfb(hfb, t_pr = t_pr, t_po = t_po, baseline=baseline,
                        preload=preload)
-    HFB_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
-    return HFB_db
+    hfb_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
+    return hfb_db
 
 
-def epoch_HFB(HFB, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
+def epoch_hfb(hfb, t_pr = -0.5, t_po = 1.75, baseline=None, preload=True):
     """
-    Epoch stimulus condition HFB using MNE Epochs function
+    Epoch stimulus condition hfb using MNE Epochs function
     """
-    events, event_id = mne.events_from_annotations(HFB) 
-    epochs = mne.Epochs(HFB, events, event_id= event_id, tmin=t_pr, 
+    events, event_id = mne.events_from_annotations(hfb) 
+    epochs = mne.Epochs(hfb, events, event_id= event_id, tmin=t_pr, 
                     tmax=t_po, baseline=baseline,preload=preload)
     return epochs
 
 
 def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_pr = -0.5):
     """
-    Normalise HFB with pre stimulus baseline and log transform for result in dB
+    Normalise hfb with pre stimulus baseline and log transform for result in dB
     Allows for cross channel comparison via a single scale.
     """
     events = epochs.events
@@ -191,9 +191,9 @@ def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_pr = -0.5):
     A = np.divide(A, baseline[np.newaxis,:,np.newaxis]) # divide by baseline
     A = np.nan_to_num(A)
     A = 10*np.log10(A) # convert to db
-    HFB = mne.EpochsArray(A, epochs.info, events=events, 
+    hfb = mne.EpochsArray(A, epochs.info, events=events, 
                              event_id=event_id, tmin=t_pr) 
-    return HFB
+    return hfb
 
 
 def extract_baseline(epochs, tmin=-0.4, tmax=-0.1):
@@ -206,68 +206,107 @@ def extract_baseline(epochs, tmin=-0.4, tmax=-0.1):
     return baseline 
 
 
-#%% Classify visually responsive populations fom normalised HFB
+#%% Detect visually responsive populations
 
-def sample_mean(A):
-    M = np.mean(A,axis=-1) # average over sample
-    # Get rid of infinity 
-    M[M==-inf] = 0
-    return M
+def detect_visual_chan(hfb_db, tmin_prestim=-0.4, tmax_prestim=-0.1,tmin_postim=0.1,
+                       tmax_postim=0.5, alpha=0.05, zero_method='pratt', 
+                       alternative='greater'):
+    """
+    Detect visually responsive channels by testing hypothesis of no difference 
+    between prestimulus and postimulus HFB amplitude.
+    ----------
+    Parameters
+    ----------
+    hfb_db: MNE raw object
+            HFB of iEEG in decibels
+    tmin_prestim: float
+                starting time prestimulus amplitude
+    tmax_preststim: float
+                    stoping time prestimlus amplituds
+    tmin_postim: float
+                 starting time postimuls amplitude
+    tmax_postim: float
+                stopping time postimulus amplitude
+    alpha: float
+        significance threshold to reject the null
+    From scipy.stats.wilcoxon:
+    alternative: {“two-sided”, “greater”, “less”}, optional
+    zero_method: {“pratt”, “wilcox”, “zsplit”}, optional
+    -------
+    Returns
+    -------
+    visual_chan: list.
+                List of visually responsive channels
+    effect_size: list
+                 visual responsivity effect size
+    """
+    A_prestim = crop_hfb(hfb_db, tmin=tmin_prestim, tmax=tmax_prestim)
+    A_postim = crop_hfb(hfb_db, tmin=tmin_postim, tmax=tmax_postim)
+    nchans = len(hfb_db.info['ch_names'])
+    reject, pval_correct, tstat = multiple_wilcoxon_test(A_postim, A_prestim, nchans, alpha=alpha, zero_method=zero_method, alternative=alternative)
+    visual_responsivity = compute_visual_responsivity(A_postim, A_prestim)
+    visual_chan, effect_size = visual_chans_stats(reject, visual_responsivity, hfb_db)
+    return visual_chan, effect_size
 
 
-def crop_HFB(HFB_db, tmin=-0.5, tmax=-0.05):
-    A = HFB_db.copy().crop(tmin=tmin, tmax=tmax).get_data()
+def crop_hfb(hfb_db, tmin=-0.5, tmax=-0.05):
+    A = hfb_db.copy().crop(tmin=tmin, tmax=tmax).get_data()
     return A
 
-def crop_stim_HFB(HFB_db, stim_id, tmin=-0.5, tmax=-0.05):
-    A = HFB_db[stim_id].copy().crop(tmin=tmin, tmax=tmax).get_data()
+
+def crop_stim_hfb(hfb_db, stim_id, tmin=-0.5, tmax=-0.05):
+    A = hfb_db[stim_id].copy().crop(tmin=tmin, tmax=tmax).get_data()
     return A
 
-def multiple_test(A_po, A_pr, nchans, alpha=0.05):
-    A_po = sample_mean(A_po)
-    A_pr = sample_mean(A_pr)
+
+def multiple_perm_test(A_postim, A_prestim, nchans, alpha=0.05):
+    A_postim = np.mean(A_postim, axis=-1)
+    A_prestim = np.mean(A_prestim, axis=-1)
     # Initialise inflated p values
     pval = [0]*nchans
     tstat = [0]*nchans
     # Compute inflated stats
     for i in range(0,nchans):
-        tstat[i], pval[i] = nnstats.permtest_rel(A_po[:,i], A_pr[:,i])  
+        tstat[i], pval[i] = nnstats.permtest_rel(A_postim[:,i], A_prestim[:,i])  
     # Correct for multiple testing    
     reject, pval_correct = fdrcorrection(pval, alpha=alpha)
     return reject
 
-def multiple_wilcoxon_test(A_po, A_pr, nchans, zero_method='pratt', alternative = 'greater', alpha=0.05):
-    # maybe HFB_db variablenot necessary
+
+def multiple_wilcoxon_test(A_postim, A_prestim, zero_method='pratt', alternative = 'greater', alpha=0.05):
     """Wilcoxon test for visual responsivity"""
-    A_po = sample_mean(A_po)
-    A_pr = sample_mean(A_pr)
+    A_postim = np.mean(A_postim, axis=-1)
+    A_prestim = np.mean(A_prestim, axis=-1)
     # Iniitialise inflated p values
+    nchans = A_postim.shape[1]
     pval = [0]*nchans
     tstat = [0]*nchans
-    # Compute inflated stats
+    # Compute inflated stats given non normal distribution
     for i in range(0,nchans):
-        tstat[i], pval[i] = spstats.wilcoxon(A_po[:,i], A_pr[:,i], zero_method=zero_method, 
-                                             alternative = alternative) # Non normal distrib 
+        tstat[i], pval[i] = spstats.wilcoxon(A_postim[:,i], A_prestim[:,i],
+                                             zero_method=zero_method, alternative=alternative) 
     # Correct for multiple testing    
     reject, pval_correct = fdrcorrection(pval, alpha=alpha)
     w_test = reject, pval_correct, tstat
     return w_test
 
-def multiple_t_test(A_po, A_pr, nchans, alpha=0.05):
-    # maybe HFB_db variablenot necessary
+
+def multiple_t_test(A_postim, A_prestim, nchans, alpha=0.05):
+    # maybe hfb_db variablenot necessary
     """t test for visual responsivity"""
-    A_po = sample_mean(A_po)
-    A_pr = sample_mean(A_pr)
+    A_postim = np.mean(A_postim, axis=-1)
+    A_prestim = np.mean(A_prestim, axis=-1)
     # Initialise inflated p values
     pval = [0]*nchans
     tstat = [0]*nchans
     # Compute inflated stats
     for i in range(0,nchans):
-        tstat[i], pval[i] = spstats.ttest_ind(A_po[:,i], A_pr[:,i], equal_var=False)  
+        tstat[i], pval[i] = spstats.ttest_ind(A_postim[:,i], A_prestim[:,i], equal_var=False)
     # Correct for multiple testing    
     reject, pval_correct = fdrcorrection(pval, alpha=alpha)
     w_test = reject, pval_correct, tstat
     return w_test
+
 
 def cohen_d(x, y):
     
@@ -287,20 +326,21 @@ def cohen_d(x, y):
     
     return cohen
 
-def compute_visual_responsivity(A_po, A_pr):
+
+def compute_visual_responsivity(A_postim, A_prestim):
     
-    nchan = A_po.shape[1]
+    nchan = A_postim.shape[1]
     visual_responsivity = [0]*nchan
     
     for i in range(nchan):
-        x = np.ndarray.flatten(A_po[:,i,:])
-        y = np.ndarray.flatten(A_pr[:,i,:])
+        x = np.ndarray.flatten(A_postim[:,i,:])
+        y = np.ndarray.flatten(A_prestim[:,i,:])
         visual_responsivity[i] = cohen_d(x,y)
         
     return visual_responsivity
 
-def visual_chans_stats(reject, visual_responsivity, HFB_db):
-    """Used in detect_visual_chan function"""
+
+def visual_chans_stats(reject, visual_responsivity, hfb_db):
     idx = np.where(reject==True)
     idx = idx[0]
     visual_chan = []
@@ -308,30 +348,21 @@ def visual_chans_stats(reject, visual_responsivity, HFB_db):
     
     for i in list(idx):
         if visual_responsivity[i]>0:
-            visual_chan.append(HFB_db.info['ch_names'][i])
+            visual_chan.append(hfb_db.info['ch_names'][i])
             effect_size.append(visual_responsivity[i])
         else:
             continue
     return visual_chan, effect_size
 
+#%% Compute visual channels latency response
 
-def detect_visual_chan(HFB_db, tmin_pr=-0.4, tmax_pr=-0.1, tmin_po=0.1, tmax_po=0.5, alpha=0.05):
-    """Return statistically significant visual channels with effect size"""
-    A_pr = crop_HFB(HFB_db, tmin=tmin_pr, tmax=tmax_pr)
-    A_po = crop_HFB(HFB_db, tmin=tmin_po, tmax=tmax_po)
-    nchans = len(HFB_db.info['ch_names'])
-    reject, pval_correct, tstat = multiple_wilcoxon_test(A_po, A_pr, nchans, alpha=alpha, zero_method='pratt', alternative='greater')
-    visual_responsivity = compute_visual_responsivity(A_po, A_pr)
-    visual_chan, effect_size = visual_chans_stats(reject, visual_responsivity, HFB_db)
-    return visual_chan, effect_size
-
-def pval_series(visual_HFB, image_id, visual_channels, alpha = 0.05):
+def pval_series(visual_hfb, image_id, visual_channels, alpha = 0.05):
     """Return pvalue of postimulus visual responsivity along observations"""
     nchan = len(visual_channels)
-    A_po = crop_stim_HFB(visual_HFB, image_id, tmin=0, tmax=1.5)
-    A_pr = crop_stim_HFB(visual_HFB, image_id, tmin=-0.4, tmax=0)
-    A_baseline = sample_mean(A_pr) #No 
-    nobs = A_po.shape[2]
+    A_postim = crop_stim_hfb(visual_hfb, image_id, tmin=0, tmax=1.5)
+    A_prestim = crop_stim_hfb(visual_hfb, image_id, tmin=-0.4, tmax=0)
+    A_baseline = np.mean(A_prestim, axis=-1) #No 
+    nobs = A_postim.shape[2]
     
     pval = [0]*nobs
     tstat = [0]*nobs
@@ -341,31 +372,32 @@ def pval_series(visual_HFB, image_id, visual_channels, alpha = 0.05):
     
     for i in range(0, nchan):
         for t in range(0,nobs):
-            tstat[t] = spstats.wilcoxon(A_po[:,i,t], A_baseline[:,i], zero_method='pratt')
+            tstat[t] = spstats.wilcoxon(A_postim[:,i,t], A_baseline[:,i], zero_method='pratt')
             pval[t] = tstat[t][1]
             
         reject[i,:], pval_correct[i, :] = fdrcorrection(pval, alpha=alpha) # correct for multiple hypotheses
         
     return reject, pval_correct
 
-def compute_latency(visual_HFB, image_id, visual_channels, alpha = 0.05):
+
+def compute_latency(visual_hfb, image_id, visual_channels, alpha = 0.05):
     """Compute latency response of visual channels"""
-    A_po = crop_stim_HFB(visual_HFB, image_id, tmin=0, tmax=1.5)
-    A_pr = crop_stim_HFB(visual_HFB, image_id, tmin=-0.4, tmax=0)
-    A_baseline = sample_mean(A_pr) #No 
+    A_postim = crop_stim_hfb(visual_hfb, image_id, tmin=0, tmax=1.5)
+    A_prestim = crop_stim_hfb(visual_hfb, image_id, tmin=-0.4, tmax=0)
+    A_baseline = np.mean(A_prestim, axis=-1) #No
     
-    pval = [0]*A_po.shape[2]
-    tstat = [0]*A_po.shape[2]
+    pval = [0]*A_postim.shape[2]
+    tstat = [0]*A_postim.shape[2]
     latency_response = [0]*len(visual_channels)
     
     for i in range(0, len(visual_channels)):
-        for t in range(0,np.size(A_po,2)):
-            tstat[t] = spstats.wilcoxon(A_po[:,i,t], A_baseline[:,i], zero_method='pratt')
+        for t in range(0,np.size(A_postim,2)):
+            tstat[t] = spstats.wilcoxon(A_postim[:,i,t], A_baseline[:,i], zero_method='pratt')
             pval[t] = tstat[t][1]
             
         reject, pval_correct = fdrcorrection(pval, alpha=alpha) # correct for multiple hypotheses
         
-        for t in range(0,np.size(A_po,2)):
+        for t in range(0,np.size(A_postim,2)):
             if np.all(reject[t:t+50])==True :
                 latency_response[i]=t/500*1e3
                 break 
@@ -373,15 +405,17 @@ def compute_latency(visual_HFB, image_id, visual_channels, alpha = 0.05):
                 continue
     return latency_response
 
-def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels, 
-                        tmin_po=0.2, tmax_po=0.5, alpha=0.05):
+# %% Classify channels into Face, Place and retinotopic channels
+
+def classify_Face_Place(visual_hfb, face_id, place_id, visual_channels, 
+                        tmin_postim=0.2, tmax_postim=0.5, alpha=0.05):
     nchan = len(visual_channels)
     group = ['O']*nchan
     category_selectivity = [0]*len(group)
-    A_face = crop_stim_HFB(visual_HFB, face_id, tmin=tmin_po, tmax=tmax_po)
-    A_place = crop_stim_HFB(visual_HFB, place_id, tmin=tmax_po, tmax=tmax_po)
+    A_face = crop_stim_hfb(visual_hfb, face_id, tmin=tmin_postim, tmax=tmax_postim)
+    A_place = crop_stim_hfb(visual_hfb, place_id, tmin=tmax_postim, tmax=tmax_postim)
     
-    n_visuals = len(visual_HFB.info['ch_names'])
+    n_visuals = len(visual_hfb.info['ch_names'])
     w_test_plus = multiple_wilcoxon_test(A_face, A_place, n_visuals, 
                                          zero_method='pratt', alternative = 'greater',alpha=alpha)
     reject_plus = w_test_plus[0]
@@ -394,8 +428,8 @@ def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels,
     
     # Significant electrodes located outside of V1 and V2 are Face or Place responsive
     for idx, channel in enumerate(visual_channels):
-        A_face = crop_stim_HFB(visual_HFB, face_id, tmin=tmin_po, tmax=tmax_po)
-        A_place = crop_stim_HFB(visual_HFB, place_id, tmin=tmax_po, tmax=tmax_po)
+        A_face = crop_stim_hfb(visual_hfb, face_id, tmin=tmin_postim, tmax=tmax_postim)
+        A_place = crop_stim_hfb(visual_hfb, place_id, tmin=tmax_postim, tmax=tmax_postim)
         A_face = np.ndarray.flatten(A_face[:,idx,:])
         A_place = np.ndarray.flatten(A_place[:,idx,:])
         if reject_plus[idx]==False and reject_minus[idx]==False :
@@ -408,6 +442,7 @@ def classify_Face_Place(visual_HFB, face_id, place_id, visual_channels,
                group[idx] = 'P'
                category_selectivity[idx] = cohen_d(A_place, A_face)
     return group, category_selectivity
+
 
 def classify_retinotopic(visual_channels, group, dfelec):
     """Return retinotopic from V1 and V2"""
@@ -423,30 +458,30 @@ def classify_retinotopic(visual_channels, group, dfelec):
 
 # %% Make a dictionary to save visual channel table in mat file
 
-def HFB_to_visual_populations(HFB, dfelec, t_pr = -0.5, t_po = 1.75, baseline=None,
-                       preload=True, tmin_pr=-0.2, tmax_pr=0, tmin_po=0.1,
-                       tmax_po=0.5, alpha= 0.01):
+def hfb_to_visual_populations(hfb, dfelec, t_pr = -0.5, t_po = 1.75, baseline=None,
+                       preload=True, tmin_prestim=-0.2, tmax_prestim=0, tmin_postim=0.1,
+                       tmax_postim=0.5, alpha= 0.01):
     
-    # Extract and normalise HFB
-    HFB_db = HFB_to_db(HFB, t_pr = t_pr, t_po = t_po, baseline=None,
-                       preload=True, tmin=tmin_pr, tmax=tmax_pr)
-    events, event_id = mne.events_from_annotations(HFB)
+    # Extract and normalise hfb
+    hfb_db = hfb_to_db(hfb, t_pr = t_pr, t_po = t_po, baseline=None,
+                       preload=True, tmin=tmin_prestim, tmax=tmax_prestim)
+    events, event_id = mne.events_from_annotations(hfb)
     face_id = extract_stim_id(event_id, cat = 'Face')
     place_id = extract_stim_id(event_id, cat='Place')
     image_id = face_id+place_id
     
     # Detect visual channels
-    visual_chan, visual_responsivity = detect_visual_chan(HFB_db, tmin_pr=tmax_pr, tmax_pr=tmax_pr, 
-                                     tmin_po=tmin_po, tmax_po=tmax_po, alpha=alpha)
+    visual_chan, visual_responsivity = detect_visual_chan(hfb_db, tmin_prestim=tmax_prestim, tmax_prestim=tmax_prestim, 
+                                     tmin_postim=tmin_postim, tmax_postim=tmax_postim, alpha=alpha)
     
-    visual_HFB = HFB_db.copy().pick_channels(visual_chan)
+    visual_hfb = hfb_db.copy().pick_channels(visual_chan)
     
     # Compute latency response
-    latency_response = compute_latency(visual_HFB, image_id, visual_chan)
+    latency_response = compute_latency(visual_hfb, image_id, visual_chan)
     
     # Classify Face and Place populations
-    group, category_selectivity = classify_Face_Place(visual_HFB, face_id, place_id, visual_chan, 
-                                tmin_po=tmin_po, tmax_po=tmax_po, alpha=alpha)
+    group, category_selectivity = classify_Face_Place(visual_hfb, face_id, place_id, visual_chan, 
+                                tmin_postim=tmin_postim, tmax_postim=tmax_postim, alpha=alpha)
     # Classify retinotopic populations
     group = classify_retinotopic(visual_chan, group, dfelec)
     
@@ -469,14 +504,14 @@ def HFB_to_visual_populations(HFB, dfelec, t_pr = -0.5, t_po = 1.75, baseline=No
         
     return visual_populations
 
-def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'): 
+def make_visual_chan_dictionary(df_visual, raw, hfb, epochs, sub='DiAs'): 
    # Return visual channels in dictionary to save in matfile 
     events, event_id = mne.events_from_annotations(raw)
     visual_chan = list(df_visual['chan_name'].loc[df_visual['subject_id']== sub])
     category = list(df_visual['category'].loc[df_visual['subject_id']== sub])
     brodman = list(df_visual['brodman'].loc[df_visual['subject_id']== sub])
     DK = list(df_visual['DK'].loc[df_visual['subject_id']== sub] )
-    ts = log_transform(HFB, picks=visual_chan)
+    ts = log_transform(hfb, picks=visual_chan)
     multitrial_ts = log_transform(epochs, picks=visual_chan) # make data normal
     #multitrial_ts = np.exp(multitrial_ts)
     # ch_idx = mne.pick_channels(epochs.info['ch_names'], include=visual_chan)
@@ -485,19 +520,19 @@ def make_visual_chan_dictionary(df_visual, raw, HFB, epochs, sub='DiAs'):
                    event_id = event_id)
     return visual_dict 
 
-def HFB_to_db(HFB, t_pr = -0.5, t_po = 1.75, baseline=None,
+def hfb_to_db(hfb, t_pr = -0.5, t_po = 1.75, baseline=None,
                        preload=True, tmin=-0.4, tmax=-0.1):
-    epochs = epoch_HFB(HFB, t_pr = t_pr, t_po = t_po, baseline=baseline,
+    epochs = epoch_hfb(hfb, t_pr = t_pr, t_po = t_po, baseline=baseline,
                        preload=preload)
-    HFB_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
-    return HFB_db
+    hfb_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_pr=t_pr)
+    return hfb_db
 
 
 def log_transform(epochs, picks):
     # transform into log normal distribution, should also work with raw structure
     data = epochs.copy().pick(picks=picks).get_data()
-    log_HFB = np.log(data)
-    return log_HFB
+    log_hfb = np.log(data)
+    return log_hfb
 
 
 def extract_stim_id(event_id, cat = 'Face'):
@@ -510,23 +545,23 @@ def extract_stim_id(event_id, cat = 'Face'):
 
 # %% Create category specific time series and input for mvgc
 
-def epoch_category(HFB_visual, cat='Rest', tmin=-0.5, tmax=1.75):
+def epoch_category(hfb_visual, cat='Rest', tmin=-0.5, tmax=1.75):
     """Epoch category specific envelope"""
     if cat == 'Rest':
-        events_1 = mne.make_fixed_length_events(HFB_visual, id=32, start=100, 
+        events_1 = mne.make_fixed_length_events(hfb_visual, id=32, start=100, 
                                                 stop=156, duration=2, first_samp=False, overlap=0.0)
-        events_2 = mne.make_fixed_length_events(HFB_visual, id=32, 
+        events_2 = mne.make_fixed_length_events(hfb_visual, id=32, 
                                                 start=300, stop=356, duration=2, first_samp=False, overlap=0.0)
         
         events = np.concatenate((events_1,events_2))
         rest_id = {'Rest': 32}
         # epoch
-        epochs= mne.Epochs(HFB_visual, events, event_id= rest_id, 
+        epochs= mne.Epochs(hfb_visual, events, event_id= rest_id, 
                             tmin=tmin, tmax=tmax, baseline= None, preload=True)
     else:
-        stim_events, stim_events_id = mne.events_from_annotations(HFB_visual)
+        stim_events, stim_events_id = mne.events_from_annotations(hfb_visual)
         cat_id = extract_stim_id(stim_events_id, cat = cat)
-        epochs= mne.Epochs(HFB_visual, stim_events, event_id= stim_events_id, 
+        epochs= mne.Epochs(hfb_visual, stim_events, event_id= stim_events_id, 
                             tmin=tmin, tmax=tmax, baseline= None, preload=True)
         epochs = epochs[cat_id]
         events = epochs.events
@@ -539,27 +574,27 @@ def db_transform_category(epochs, events, event_id=None, tmin=-0.4, tmax=-0.1, t
     A = np.divide(A, baseline[np.newaxis,:,np.newaxis]) # divide by baseline
     A = np.nan_to_num(A)
     A = 10*np.log10(A) # convert to db
-    HFB = mne.EpochsArray(A, epochs.info, events=events, 
+    hfb = mne.EpochsArray(A, epochs.info, events=events, 
                              event_id=event_id, tmin=t_pr) 
-    return HFB
+    return hfb
 
 
-def visually_responsive_HFB(sub_id= 'DiAs', proc= 'preproc', 
-                            stage= '_BP_montage_HFB_raw.fif'):
+def visually_responsive_hfb(sub_id= 'DiAs', proc= 'preproc', 
+                            stage= '_BP_montage_hfb_raw.fif'):
     """Load high frequency envelope of visually responsive channels"""
     subject = cf.Subject(name=sub_id)
     raw = subject.load_raw_data(proc= proc, stage= stage)
     visual_chan = subject.pick_visual_chan()
     visual_chan = visual_chan['chan_name'].values.tolist()
-    HFB_visual = raw.copy().pick_channels(visual_chan)
-    return HFB_visual
+    hfb_visual = raw.copy().pick_channels(visual_chan)
+    return hfb_visual
         
-def category_specific_HFB(HFB_visual, cat='Rest', tmin_crop = -0.5, tmax_crop=1.75) :
-    """Return category specific visually respinsive HFB (rest, face, place) during a specific stimulus"""
-    epochs, events = epoch_category(HFB_visual, cat=cat, tmin=-0.5, tmax=1.75)
-    HFB = db_transform_category(epochs, events, tmin=-0.4, tmax=-0.1, t_pr=-0.5)
-    HFB = HFB.crop(tmin=tmin_crop, tmax=tmax_crop)
-    return HFB 
+def category_specific_hfb(hfb_visual, cat='Rest', tmin_crop = -0.5, tmax_crop=1.75) :
+    """Return category specific visually respinsive hfb (rest, face, place) during a specific stimulus"""
+    epochs, events = epoch_category(hfb_visual, cat=cat, tmin=-0.5, tmax=1.75)
+    hfb = db_transform_category(epochs, events, tmin=-0.4, tmax=-0.1, t_pr=-0.5)
+    hfb = hfb.crop(tmin=tmin_crop, tmax=tmax_crop)
+    return hfb 
         # Get data and permute into hierarchical order
 
 def pick_visual_chan(picks, visual_chan):
@@ -613,9 +648,9 @@ def order_population_indices(population_indices, ordered_channel_indices, group)
          ordered_population_indices[key] = []
     return ordered_population_indices
 
-def order_visual_data_indices(ordered_channel_indices, HFB):
-    """Order visual HFB channels indices along visual herarchy"""
-    X = HFB.get_data()
+def order_visual_data_indices(ordered_channel_indices, hfb):
+    """Order visual hfb channels indices along visual herarchy"""
+    X = hfb.get_data()
     X_ordered = np.zeros_like(X)
     for idx, i in enumerate(ordered_channel_indices):
             X_ordered[:,idx,:] = X[:,i,:]
@@ -636,7 +671,7 @@ def visual_data_dict(sorted_visual_chan, ordered_population_indices):
     visual_data['chan_name'] = sorted_visual_chan['chan_name'].to_list()
     return visual_data
 
-def category_specific_HFB_to_visual_data(HFB, visual_chan):
+def category_specific_hfb_to_visual_data(hfb, visual_chan):
     
     group = visual_chan['group'].unique().tolist()
     population_indices = parcellation_to_indices(visual_chan, parcellation='group')
@@ -645,27 +680,27 @@ def category_specific_HFB_to_visual_data(HFB, visual_chan):
     sorted_indices = sorted_visual_chan.index.to_list()
     ordered_population_indices = order_population_indices(population_indices, 
                                                           sorted_indices, group)
-    X = order_visual_data_indices(sorted_indices, HFB)
+    X = order_visual_data_indices(sorted_indices, hfb)
     X = np.transpose(X, axes = (1,2,0)) # permute for compatibility with mvgc
     
-    time = HFB.times
+    time = hfb.times
     visual_data = visual_data_dict(sorted_visual_chan, ordered_population_indices)
     visual_data['time'] = time
     visual_data['DK_to_indices'] = DK_indices
     return X, visual_data
 
-def HFB_to_visual_data(HFB, visual_chan, sfreq=250, cat='Rest', tmin_crop = 0.5, tmax_crop=1.75):
-    HFB = category_specific_HFB(HFB, cat=cat, tmin_crop = tmin_crop, tmax_crop=tmax_crop)
-    HFB = HFB.resample(sfreq=sfreq)
-    X, visual_data = category_specific_HFB_to_visual_data(HFB, visual_chan)
+def hfb_to_visual_data(hfb, visual_chan, sfreq=250, cat='Rest', tmin_crop = 0.5, tmax_crop=1.75):
+    hfb = category_specific_hfb(hfb, cat=cat, tmin_crop = tmin_crop, tmax_crop=tmax_crop)
+    hfb = hfb.resample(sfreq=sfreq)
+    X, visual_data = category_specific_hfb_to_visual_data(hfb, visual_chan)
     return X, visual_data
 
-def plot_HFB_response(HFB_db, stim_id, picks='LTo4'):
-    evok = HFB_db[stim_id].copy().pick(picks).average()
-    evok_std = HFB_db[stim_id].copy().pick(picks).standard_error()
+def plot_hfb_response(hfb_db, stim_id, picks='LTo4'):
+    evok = hfb_db[stim_id].copy().pick(picks).average()
+    evok_std = hfb_db[stim_id].copy().pick(picks).standard_error()
     ERP = evok.data
     ERP_std = evok_std.data
-    time = HFB_db.times
+    time = hfb_db.times
     plt.plot(time, ERP[0,:])
     plt.fill_between(time, ERP[0,:]-1.96*ERP_std[0,:], ERP[0,:]+1.96*ERP_std[0,:],
                      alpha=0.3)
