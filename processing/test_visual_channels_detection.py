@@ -25,6 +25,7 @@ from pathlib import Path, PurePath
 #%% Parameters
 proc = 'preproc'
 stage = '_hfb_db_epo.fif'
+epo = True
 tmin_prestim=-0.4
 tmax_prestim=-0.1
 tmin_postim=0.2
@@ -38,18 +39,19 @@ alternative='greater'
 subjects = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'NeLa', 'SoGi']
 postim_amplitude_list = [0]*len(subjects)
 prestim_amplitude_list = [0]*len(subjects)
+all_visual_chans = []
+all_effect_sizes = []
 for i, sub_id in enumerate(subjects):
     subject = cf.Subject(name=sub_id)
-    datadir = subject.processing_stage_path(proc=proc)
-    fname = sub_id + '_hfb_db_epo.fif'
-    fpath = datadir.joinpath(fname)
-    hfb_db = mne.read_epochs(fpath, preload=True)
+    hfb_db = subject.load_data(proc=proc, stage=stage, epo=epo)
     visual_channels, effect_size = hf.detect_visual_chan(hfb_db, tmin_prestim=tmin_prestim, 
                                                   tmax_prestim=-tmax_prestim
                                                   ,tmin_postim=tmin_postim,
                            tmax_postim=tmax_postim, alpha=alpha, zero_method=zero_method, 
                            alternative=alternative)
     hfb_visual = hfb_db.copy().pick_channels(visual_channels).crop()
+    all_visual_chans.extend(visual_channels)
+    all_effect_sizes.extend(effect_size)
     A_prestim = hfb_visual.copy().crop(tmin=tmin_prestim, tmax=tmax_prestim).get_data()
     A_prestim = np.ndarray.flatten(A_prestim)
     A_postim = hfb_visual.copy().crop(tmin=tmin_postim, tmax=tmax_postim).get_data()
@@ -71,6 +73,8 @@ for i, sub_id in enumerate(subjects):
 prestim_amplitude = np.concatenate(prestim_amplitude_list)
 postim_amplitude = np.concatenate(postim_amplitude_list)
 
+#%%
+all_effect_sizes.sort()
 #%% Create dataframe
 
 #%% Compute some stats
@@ -92,5 +96,5 @@ ax[1].hist(postim_amplitude, bins=nbins, density=True)
 #%%
 
 # fig, ax = plt.subplots(1,2)
-# sns.violinplot(prestim_amplitude, ax=ax[0])
-# sns.violinplot(postim_amplitude, ax=ax[1])
+# sns.stripplot(prestim_amplitude, ax=ax[0])
+# sns.stripplot(postim_amplitude, ax=ax[1])

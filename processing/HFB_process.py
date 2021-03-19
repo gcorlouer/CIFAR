@@ -142,7 +142,7 @@ def mean_normalise(envelope):
 def raw_to_hfb_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_prestim = -0.5,
                   l_trans_bandwidth= 10.0, h_trans_bandwidth= 10.0, 
                   filter_length='auto', phase='minimum', t_postim = 1.75, 
-                  baseline=None, preload=True, tmin=-0.4, tmax=-0.1):
+                  baseline=None, preload=True, tmin=-0.4, tmax=-0.1, mode='logratio'):
     """
     Compute hfb in decibel from raw LFP
     ----------
@@ -158,13 +158,15 @@ def raw_to_hfb_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_prestim = -0.5,
         baseline starts
     tmax: float
         baseline stops
+    See MNE python documentation for other optional parameters
     """
     hfb = extract_hfb(raw, l_freq=l_freq, nband=nband, band_size=band_size,
                 l_trans_bandwidth= l_trans_bandwidth, h_trans_bandwidth= h_trans_bandwidth,
                 filter_length=filter_length, phase=phase)
     epochs = epoch_hfb(hfb, t_prestim = t_prestim, t_postim = t_postim, baseline=baseline,
                        preload=preload)
-    hfb_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_prestim=t_prestim)
+    hfb_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_prestim=t_prestim, 
+                          mode='logratio')
     return hfb_db
 
 
@@ -178,27 +180,28 @@ def epoch_hfb(hfb, t_prestim = -0.5, t_postim = 1.75, baseline=None, preload=Tru
     return epochs
 
 
-def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_prestim = -0.5):
+def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_prestim = -0.5, mode='logratio'):
     """
     Normalise hfb with pre stimulus baseline and log transform for result in dB
     Allows for cross channel comparison via a single scale.
     """
     events = epochs.events
     event_id = epochs.event_id
-    del event_id['boundary'] # Drop boundary event
-    baseline = extract_baseline(epochs, tmin=tmin, tmax=tmax)
+    # Drop boundary event for compatibility. This does not affect results.
+    del event_id['boundary'] 
     A = epochs.get_data()
-    A = np.divide(A, baseline[np.newaxis,:,np.newaxis]) # divide by baseline
-    A = np.nan_to_num(A)
-    A = 10*np.log10(A) # convert to db
+    times = epochs.times
+    A = mne.baseline.rescale(A,times,baseline=(tmin,tmax),mode=mode)
     hfb = mne.EpochsArray(A, epochs.info, events=events, 
-                             event_id=event_id, tmin=t_prestim) 
+                             event_id=event_id, tmin=t_prestim)
     return hfb
 
 
 def extract_baseline(epochs, tmin=-0.4, tmax=-0.1):
     """
-    Extract baseline by averaging prestimulus accross time and trials
+    Extract baseline by averaging prestimulus accross time and trials. From 
+    testing, it does not differs much to MNE baseline.rescale, so might as well
+    use MNE
     """
     baseline = epochs.copy().crop(tmin=tmin, tmax=tmax) # Extract prestimulus baseline
     baseline = baseline.get_data()
