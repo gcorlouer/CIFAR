@@ -24,6 +24,7 @@ from pathlib import Path, PurePath
 
 #%% Parameters
 proc = 'preproc'
+stage = '_hfb_db_epo.fif'
 tmin_prestim=-0.4
 tmax_prestim=-0.1
 tmin_postim=0.2

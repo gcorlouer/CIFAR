@@ -138,13 +138,17 @@ class Subject:
         
         return raw
     
-    def load_raw_data(self, proc= 'preproc', stage= '_BP_montage_HFB_raw.fif'):  
+    def load_data(self, proc= 'preproc', stage= '_BP_montage_HFB_raw.fif',
+                      preload=True, epo=False):  
         datadir = self.processing_stage_path(proc=proc)
         sub = self.name
         fname = sub + stage
         fpath = datadir.joinpath(fname)
-        raw = mne.io.read_raw_fif(fpath, preload=True)
-        return raw 
+        if epo==False:
+            data = mne.io.read_raw_fif(fpath, preload=preload)
+        else:
+            data = mne.read_epochs(fpath, preload=preload)
+        return data 
 
     
     def brodman(self, chan_name):
