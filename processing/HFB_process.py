@@ -191,7 +191,8 @@ def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_prestim = -0.5, mode='logratio'
     del event_id['boundary'] 
     A = epochs.get_data()
     times = epochs.times
-    A = mne.baseline.rescale(A,times,baseline=(tmin,tmax),mode=mode)
+    # db transform
+    A = 10*mne.baseline.rescale(A,times,baseline=(tmin,tmax),mode=mode)
     hfb = mne.EpochsArray(A, epochs.info, events=events, 
                              event_id=event_id, tmin=t_prestim)
     return hfb
