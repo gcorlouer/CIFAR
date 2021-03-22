@@ -362,7 +362,9 @@ def cohen_d(x, y):
 
 
 def compute_visual_responsivity(A_postim, A_prestim):
-    
+    """
+    Compute visual responsivity of a channel from cohen d.
+    """
     nchan = A_postim.shape[1]
     visual_responsivity = [0]*nchan
     
@@ -375,6 +377,9 @@ def compute_visual_responsivity(A_postim, A_prestim):
 
 
 def visual_chans_stats(reject, visual_responsivity, hfb_db):
+    """
+    Return visual channels with their corresponding responsivity
+    """
     idx = np.where(reject==True)
     idx = idx[0]
     visual_chan = []

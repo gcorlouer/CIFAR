@@ -132,6 +132,21 @@ def ts_all_categories(HFB, sfreq=250, tmin_crop=0.050, tmax_crop=0.250):
     ts = np.transpose(ts, (2, 3, 1, 0))
     return ts, time
 
+#%% Gaussianity estimation
+
+def skew_kurtosis(epochs, tmin = -0.4, tmax = -0.1):
+    """
+    Compute skewness and kurtosis over some time window. This is useful for 
+    roughly estimation of non Gaussianity.
+    """
+    epochs = epochs.copy().crop(tmin=tmin, tmax=tmax)
+    X = epochs.get_data()
+    X = np.ndarray.flatten(X)
+    skewness = stats.skew(X)
+    kurtosis = stats.kurtosis(X)
+    print(f'Over [{tmin} {tmax}]s skewness is {skewness}, kurtosis is {kurtosis}\n')
+    return X
+
 #%% Evok utilities
 
 def epochs_to_evok(epochs):
@@ -146,8 +161,11 @@ def epochs_to_evok(epochs):
     evok_stat = (evok, upper_confidence, lower_confidence)
     return evok_stat
 
-def plot_evok(evok_stat, ax, color='k', alpha=0.5):
-    xticks = np.arange(-0.5, 1.75, 0.1)
+def plot_evok(evok_stat, times, ax, tmin, tmax, step, color='k', alpha=0.5):
+    """
+    Plot evok potential of one trial with standard error of mean
+    """
+    xticks = np.arange(tmin, tmax, step)
     ax.plot(times, evok_stat[0])
     ax.fill_between(times, evok_stat[1], evok_stat[2], alpha=alpha)
     ax.xaxis.set_ticks(xticks)
