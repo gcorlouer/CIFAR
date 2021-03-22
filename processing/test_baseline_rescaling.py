@@ -13,6 +13,10 @@ import mne
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
+import scipy.stats as stats
+import helper_functions as fun
+
 
 from pathlib import Path, PurePath
 
@@ -21,8 +25,6 @@ sub_id = 'DiAs'
 proc = 'preproc'
 stage = '_BP_montage_HFB_raw.fif'
 epo = True
-tmin = 100
-tmax = 102
 l_freq = 70
 band_size=20.0
 l_trans_bandwidth= 10.0
@@ -32,6 +34,7 @@ phase='minimum'
 ichan = 6
 figname = 'hfb_normalisation.jpg'
 figpath = Path.home().joinpath('projects','CIFAR','figures', figname)
+matplotlib.rcParams.update({'font.size': 20})
 
 #%% Load data
 
@@ -54,13 +57,19 @@ units = dict(eeg='dB')
 hfb_db = hf.db_transform(epochs, tmin=-0.4, tmax=-0.1, t_prestim=-0.5)
 hfb_db.plot_image(units=units, scalings =1, combine='median')
 
-#%% Test with extract baseline
+#%% Plot evoked response
+sns.set()
+times = epochs.times
+evok_stat = fun.epochs_to_evok(epochs)
+evok_db_stat = fun.epochs_to_evok(hfb_db)
+f, ax = plt.subplots(2,1, sharex=False, figsize=(11,8), tight_layout=True)
+plot_evok(evok_stat, ax[0])
+plot_evok(evok_db_stat, ax[1])
+ax[0].set_ylabel('Amplitude (V)')
+ax[1].set_ylabel('Amplitude (dB)')
+plt.xlabel('Time(s)')
 
-# baseline = hf.extract_baseline(epochs)
-# events = epochs.events
-# event_id = epochs.event_id
-# del event_id['boundary'] # Drop boundary event
-# A = 10*np.log(np.divide(A, baseline[np.newaxis,:,np.newaxis]))
-# hfb_db = mne.EpochsArray(A, epochs.info, events=events, 
-#                              event_id=event_id, tmin=-0.5)
-# hfb_db.plot_image(scalings=1)
+#%% Save figure
+figname = 'baseline_rescaling.jpg'
+figpath = Path.home().joinpath('projects','CIFAR','cifar_notes', figname)
+plt.savefig(figpath, format='jpeg')

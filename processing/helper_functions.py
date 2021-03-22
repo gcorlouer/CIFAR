@@ -10,6 +10,8 @@ import numpy as np
 import mne
 import matplotlib.pyplot as plt
 import cifar_load_subject as cf
+import scipy.stats as stats
+
 from mne.time_frequency import psd_array_multitaper
 
 #%% Concatenate dataset 
@@ -129,6 +131,28 @@ def ts_all_categories(HFB, sfreq=250, tmin_crop=0.050, tmax_crop=0.250):
     (ncat, ntrial, nchan, nobs) = ts.shape
     ts = np.transpose(ts, (2, 3, 1, 0))
     return ts, time
+
+#%% Evok utilities
+
+def epochs_to_evok(epochs):
+    """
+    Return average event related activity and standard deviation from epochs
+    """
+    X = epochs.copy().get_data()
+    evok = np.ndarray.flatten(np.mean(X, axis=0))
+    evok_sem = np.ndarray.flatten(stats.sem(X, axis =0))
+    lower_confidence = evok - 1.96*evok_sem
+    upper_confidence = evok + 1.96*evok_sem
+    evok_stat = (evok, upper_confidence, lower_confidence)
+    return evok_stat
+
+def plot_evok(evok_stat, ax, color='k', alpha=0.5):
+    xticks = np.arange(-0.5, 1.75, 0.1)
+    ax.plot(times, evok_stat[0])
+    ax.fill_between(times, evok_stat[1], evok_stat[2], alpha=alpha)
+    ax.xaxis.set_ticks(xticks)
+    ax.axvline(x=0, color=color)
+    ax.axhline(y=0, color=color)
 # %% Sliding window analysis
 
 def event_related_time_to_sample(time, t):

@@ -30,6 +30,7 @@ baseline=None
 preload=True
 tmin=-0.4
 tmax=-0.1
+mode='logratio'
 #%%
 
 for sub_id in subjects:
@@ -43,7 +44,7 @@ for sub_id in subjects:
                               l_trans_bandwidth=l_trans_bandwidth, 
                               h_trans_bandwidth= h_trans_bandwidth, 
                               filter_length=filter_length, phase=phase, 
-                              t_postim = t_postim, 
+                              t_postim = t_postim, mode=mode,
                               baseline=baseline, preload=preload, tmin=tmin, tmax=tmax)
     fname = sub_id + '_hfb_db_epo.fif'
     fpath = datadir.joinpath(fname)

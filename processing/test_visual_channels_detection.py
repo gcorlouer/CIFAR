@@ -30,9 +30,10 @@ tmin_prestim=-0.4
 tmax_prestim=-0.1
 tmin_postim=0.2
 tmax_postim=0.5
-alpha=0.01
+alpha=0.05
 zero_method='pratt'
 alternative='greater'
+matplotlib.rcParams.update({'font.size': 18})
 
 #%% Test visual channel detection for all subjects
 
