@@ -396,7 +396,9 @@ def visual_chans_stats(reject, visual_responsivity, hfb_db):
 #%% Compute visual channels latency response
 
 def pval_series(visual_hfb, image_id, visual_channels, alpha = 0.05):
-    """Return pvalue of postimulus visual responsivity along observations"""
+    """
+    Return pvalue of postimulus visual responsivity along observations
+    """
     nchan = len(visual_channels)
     A_postim = crop_stim_hfb(visual_hfb, image_id, tmin=0, tmax=1.5)
     A_prestim = crop_stim_hfb(visual_hfb, image_id, tmin=-0.4, tmax=0)
@@ -420,7 +422,9 @@ def pval_series(visual_hfb, image_id, visual_channels, alpha = 0.05):
 
 
 def compute_latency(visual_hfb, image_id, visual_channels, alpha = 0.05):
-    """Compute latency response of visual channels"""
+    """
+    Compute latency response of visual channels"
+    """
     A_postim = crop_stim_hfb(visual_hfb, image_id, tmin=0, tmax=1.5)
     A_prestim = crop_stim_hfb(visual_hfb, image_id, tmin=-0.4, tmax=0)
     A_baseline = np.mean(A_prestim, axis=-1) #No
