@@ -151,7 +151,7 @@ def skew_kurtosis(epochs, tmin = -0.4, tmax = -0.1):
 
 def epochs_to_evok(epochs):
     """
-    Return average event related activity and standard deviation from epochs
+    Return average event related activity and standard deviation from epochs for one channel
     """
     X = epochs.copy().get_data()
     evok = np.ndarray.flatten(np.mean(X, axis=0))

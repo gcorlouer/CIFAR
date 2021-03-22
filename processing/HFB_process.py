@@ -401,8 +401,8 @@ def pval_series(visual_hfb, image_id, visual_channels, alpha = 0.05):
     """
     nchan = len(visual_channels)
     A_postim = crop_stim_hfb(visual_hfb, image_id, tmin=0, tmax=1.5)
-    A_prestim = crop_stim_hfb(visual_hfb, image_id, tmin=-0.4, tmax=0)
-    A_baseline = np.mean(A_prestim, axis=-1) #No 
+    A_prestim = crop_stim_hfb(visual_hfb, image_id, tmin=-0.4, tmax=-0.1)
+    A_baseline = np.mean(A_prestim, axis=-1)
     nobs = A_postim.shape[2]
     
     pval = [0]*nobs
