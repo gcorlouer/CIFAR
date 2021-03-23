@@ -168,12 +168,13 @@ class Subject:
         ROI_brodman = picks2brodman(df_electrodes_info, picks)
         return ROI_brodman
 
-    def pick_visual_chan(self, fname = 'visual_channels_BP_montage.csv'):
+    def pick_visual_chan(self, fname = 'visual_BP_channels.csv'):
         
         brain_path = self.brain_path()
         fpath = brain_path.joinpath(fname)
         visual_chan = pd.read_csv(fpath)
-        visual_chan = visual_chan.sort_values(by='latency')
+        # Not necessary but uncomment in case need sorting channels
+        # visual_chan = visual_chan.sort_values(by='latency')
         return visual_chan
     
     def low_high_chan(self, fname = 'visual_channels_BP_montage.csv'):
