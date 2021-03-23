@@ -36,7 +36,7 @@ zero_method='pratt'
 alternative='two-sided'
 matplotlib.rcParams.update({'font.size': 18})
 
-#%%
+#%% Detect visual channels
 
 subject = cf.Subject(name=sub_id)
 dfelec = subject.df_electrodes_info()
@@ -53,15 +53,24 @@ place_id = hf.extract_stim_id(event_id, cat='Place')
 image_id = face_id+place_id
 times = hfb_visual.times
 
-#%%
+#%% Test face and place classification
 
 group, category_selectivity = hf.classify_Face_Place(hfb_visual, face_id, place_id, visual_channels, 
-                        tmin_postim=0.1, tmax_postim=0.5, alpha=alpha,
-                        zero_method=zero_method, alternative = alternative)
+                        tmin_postim=tmin_postim, tmax_postim=tmax_postim, alpha=alpha,
+                        zero_method=zero_method)
 
 group = hf.classify_retinotopic(visual_channels, group, dfelec)
-#%%
 
 print('Face: ' + str(group.count('F')))
 print('Place: ' + str(group.count('P')))
 print('Retinotopic ' + str(group.count('R')))
+
+#%% Test peak time
+
+peak_time = hf.compute_peak_time(hfb_db, visual_channels)
+#%%
+
+visual_populations = hf.hfb_to_visual_populations(hfb_db, dfelec,
+                       tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=0.1,
+                       tmax_postim=0.5, alpha= 0.05, zero_method='pratt')
+

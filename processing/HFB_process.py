@@ -451,8 +451,7 @@ def compute_latency(visual_hfb, image_id, visual_channels, alpha = 0.05):
 # %% Classify channels into Face, Place and retinotopic channels
 
 def classify_Face_Place(visual_hfb, face_id, place_id, visual_channels, 
-                        tmin_postim=0.2, tmax_postim=0.5, alpha=0.05, zero_method='pratt',
-                        alternative = 'two-sided'):
+                        tmin_postim=0.2, tmax_postim=0.5, alpha=0.05, zero_method='pratt'):
     """
     Classify Face and place selective sites using one sided signed ranke wilcoxon
     test. 
@@ -505,24 +504,56 @@ def classify_retinotopic(visual_channels, group, dfelec):
             group[i]='R'
     return group
 
+def extract_stim_id(event_id, cat = 'Face'):
+    """
+    Returns event id of specific stimuli category (Face or Place)
+    """
+    p = re.compile(cat)
+    stim_id = []
+    for key in event_id.keys():
+        if p.match(key):
+            stim_id.append(key)
+    return stim_id
 
-# %% Make a dictionary to save visual channel table in mat file
+#%%
 
-def hfb_to_visual_populations(hfb, dfelec, t_prestim = -0.5, t_postim = 1.75, baseline=None,
-                       preload=True, tmin_prestim=-0.2, tmax_prestim=0, tmin_postim=0.1,
-                       tmax_postim=0.5, alpha= 0.01):
-    
+def compute_peak_time(hfb, visual_chan, tmin=0.05, tmax=1.75):
+    """
+    Return time of peak amplitude for each visual channel
+    """
+    nchan = len(visual_chan)
+    peak_time = [0] * nchan
+    hfb = hfb.copy().pick_channels(visual_chan)
+    hfb = hfb.copy().crop(tmin=tmin, tmax = tmax)
+    time = hfb.times
+    A = hfb.copy().get_data()
+    evok = np.mean(A,axis=0)
+    for i in range(nchan):
+        peak = np.amax(evok[i,:])
+        peak_sample = np.where(evok[i,:]==peak)
+        peak_sample = peak_sample[0][0]
+        peak_time[i] = time[peak_sample]
+    return peak_time
+#%%
+
+def hfb_to_visual_populations(hfb_db, dfelec,
+                       tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=0.1,
+                       tmax_postim=0.5, alpha= 0.05, zero_method='pratt', alternative='two-sided'):
+    """
+    Create dictionary containing relevant information on visually responsive channels
+    """
     # Extract and normalise hfb
-    hfb_db = hfb_to_db(hfb, t_prestim = t_prestim, t_postim = t_postim, baseline=None,
-                       preload=True, tmin=tmin_prestim, tmax=tmax_prestim)
-    events, event_id = mne.events_from_annotations(hfb)
+    event_id = hfb_db.event_id
     face_id = extract_stim_id(event_id, cat = 'Face')
     place_id = extract_stim_id(event_id, cat='Place')
     image_id = face_id+place_id
     
     # Detect visual channels
-    visual_chan, visual_responsivity = detect_visual_chan(hfb_db, tmin_prestim=tmax_prestim, tmax_prestim=tmax_prestim, 
-                                     tmin_postim=tmin_postim, tmax_postim=tmax_postim, alpha=alpha)
+    visual_chan, visual_responsivity = detect_visual_chan(hfb_db, tmin_prestim=tmin_prestim, 
+                                              tmax_prestim=-tmax_prestim
+                                              ,tmin_postim=tmin_postim,
+                       tmax_postim=tmax_postim, alpha=alpha, zero_method=zero_method, 
+                       alternative=alternative)
     
     visual_hfb = hfb_db.copy().pick_channels(visual_chan)
     
@@ -531,9 +562,14 @@ def hfb_to_visual_populations(hfb, dfelec, t_prestim = -0.5, t_postim = 1.75, ba
     
     # Classify Face and Place populations
     group, category_selectivity = classify_Face_Place(visual_hfb, face_id, place_id, visual_chan, 
-                                tmin_postim=tmin_postim, tmax_postim=tmax_postim, alpha=alpha)
+                        tmin_postim=tmin_postim, tmax_postim=tmax_postim, alpha=alpha,
+                        zero_method=zero_method)
     # Classify retinotopic populations
     group = classify_retinotopic(visual_chan, group, dfelec)
+    
+    # Compute peak time
+    
+    peak_time = compute_peak_time(hfb_db, visual_chan, tmin=0.05, tmax=1.75)
     
     # Create visual_populations dictionary 
     visual_populations = {'chan_name': [], 'group': [], 'latency': [], 
@@ -544,6 +580,7 @@ def hfb_to_visual_populations(hfb, dfelec, t_prestim = -0.5, t_postim = 1.75, ba
     visual_populations['latency'] = latency_response
     visual_populations['visual_responsivity'] = visual_responsivity
     visual_populations['category_selectivity'] = category_selectivity
+    visual_populations['peak_time'] = peak_time
     for chan in visual_chan: 
         chan_name_split = chan.split('-')[0]
         visual_populations['brodman'].extend(dfelec['Brodman'].loc[dfelec['electrode_name']==chan_name_split])
@@ -554,44 +591,6 @@ def hfb_to_visual_populations(hfb, dfelec, t_prestim = -0.5, t_postim = 1.75, ba
         
     return visual_populations
 
-def make_visual_chan_dictionary(df_visual, raw, hfb, epochs, sub='DiAs'): 
-   # Return visual channels in dictionary to save in matfile 
-    events, event_id = mne.events_from_annotations(raw)
-    visual_chan = list(df_visual['chan_name'].loc[df_visual['subject_id']== sub])
-    category = list(df_visual['category'].loc[df_visual['subject_id']== sub])
-    brodman = list(df_visual['brodman'].loc[df_visual['subject_id']== sub])
-    DK = list(df_visual['DK'].loc[df_visual['subject_id']== sub] )
-    ts = log_transform(hfb, picks=visual_chan)
-    multitrial_ts = log_transform(epochs, picks=visual_chan) # make data normal
-    #multitrial_ts = np.exp(multitrial_ts)
-    # ch_idx = mne.pick_channels(epochs.info['ch_names'], include=visual_chan)
-    visual_dict = dict(ts=ts, multitrial_ts=multitrial_ts, chan=visual_chan, 
-                   category=category, brodman=brodman, DK = DK, events=events,
-                   event_id = event_id)
-    return visual_dict 
-
-def hfb_to_db(hfb, t_prestim = -0.5, t_postim = 1.75, baseline=None,
-                       preload=True, tmin=-0.4, tmax=-0.1):
-    epochs = epoch_hfb(hfb, t_prestim = t_prestim, t_postim = t_postim, baseline=baseline,
-                       preload=preload)
-    hfb_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_prestim=t_prestim)
-    return hfb_db
-
-
-def log_transform(epochs, picks):
-    # transform into log normal distribution, should also work with raw structure
-    data = epochs.copy().pick(picks=picks).get_data()
-    log_hfb = np.log(data)
-    return log_hfb
-
-
-def extract_stim_id(event_id, cat = 'Face'):
-    p = re.compile(cat)
-    stim_id = []
-    for key in event_id.keys():
-        if p.match(key):
-            stim_id.append(key)
-    return stim_id 
 
 # %% Create category specific time series and input for mvgc
 
