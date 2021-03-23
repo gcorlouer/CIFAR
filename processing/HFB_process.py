@@ -451,7 +451,8 @@ def compute_latency(visual_hfb, image_id, visual_channels, alpha = 0.05):
 # %% Classify channels into Face, Place and retinotopic channels
 
 def classify_Face_Place(visual_hfb, face_id, place_id, visual_channels, 
-                        tmin_postim=0.2, tmax_postim=0.5, alpha=0.05):
+                        tmin_postim=0.2, tmax_postim=0.5, alpha=0.05, zero_method='pratt',
+                        alternative = 'two-sided'):
     nchan = len(visual_channels)
     group = ['O']*nchan
     category_selectivity = [0]*len(group)
@@ -459,13 +460,13 @@ def classify_Face_Place(visual_hfb, face_id, place_id, visual_channels,
     A_place = crop_stim_hfb(visual_hfb, place_id, tmin=tmax_postim, tmax=tmax_postim)
     
     n_visuals = len(visual_hfb.info['ch_names'])
-    w_test_plus = multiple_wilcoxon_test(A_face, A_place, n_visuals, 
-                                         zero_method='pratt', alternative = 'greater',alpha=alpha)
+    w_test_plus = multiple_wilcoxon_test(A_face, A_place, zero_method=zero_method,
+                                         alternative = 'greater', alpha=alpha)
     reject_plus = w_test_plus[0]
 
     
-    w_test_minus = multiple_wilcoxon_test(A_face, A_place, n_visuals,
-                                          zero_method='pratt', alternative = 'less',alpha=alpha)
+    w_test_minus = multiple_wilcoxon_test(A_face, A_place,
+                                          zero_method=zero_method, alternative = 'less',alpha=alpha)
     reject_minus = w_test_minus[0]
 
     
