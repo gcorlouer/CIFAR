@@ -22,14 +22,14 @@ from pathlib import Path, PurePath
 
 #%% Parameters
 proc = 'preproc'
-sub_id = 'NeLa'
+sub_id = 'DiAs'
 stage = '_hfb_db_epo.fif'
 epo = True
 tmin = -0.5
 tmax = 1.75
 tmin_prestim=-0.4
 tmax_prestim=-0.1
-tmin_postim=0.2
+tmin_postim=0.1
 tmax_postim=0.5
 alpha=0.05
 zero_method='pratt'
@@ -39,6 +39,7 @@ matplotlib.rcParams.update({'font.size': 18})
 #%%
 
 subject = cf.Subject(name=sub_id)
+dfelec = subject.df_electrodes_info()
 hfb_db = subject.load_data(proc=proc, stage=stage, epo=epo)
 visual_channels, effect_size = hf.detect_visual_chan(hfb_db, tmin_prestim=tmin_prestim, 
                                               tmax_prestim=-tmax_prestim
@@ -55,5 +56,12 @@ times = hfb_visual.times
 #%%
 
 group, category_selectivity = hf.classify_Face_Place(hfb_visual, face_id, place_id, visual_channels, 
-                        tmin_postim=0.2, tmax_postim=0.5, alpha=alpha,
+                        tmin_postim=0.1, tmax_postim=0.5, alpha=alpha,
                         zero_method=zero_method, alternative = alternative)
+
+group = hf.classify_retinotopic(visual_channels, group, dfelec)
+#%%
+
+print('Face: ' + str(group.count('F')))
+print('Place: ' + str(group.count('P')))
+print('Retinotopic ' + str(group.count('R')))

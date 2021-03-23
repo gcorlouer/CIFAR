@@ -453,6 +453,10 @@ def compute_latency(visual_hfb, image_id, visual_channels, alpha = 0.05):
 def classify_Face_Place(visual_hfb, face_id, place_id, visual_channels, 
                         tmin_postim=0.2, tmax_postim=0.5, alpha=0.05, zero_method='pratt',
                         alternative = 'two-sided'):
+    """
+    Classify Face and place selective sites using one sided signed ranke wilcoxon
+    test. 
+    """
     nchan = len(visual_channels)
     group = ['O']*nchan
     category_selectivity = [0]*len(group)
@@ -489,7 +493,9 @@ def classify_Face_Place(visual_hfb, face_id, place_id, visual_channels,
 
 
 def classify_retinotopic(visual_channels, group, dfelec):
-    """Return retinotopic from V1 and V2"""
+    """
+    Return retinotopic from V1 and V2 from Brodman atlas.
+    """
     nchan = len(group)
     bipolar_visual = [visual_channels[i].split('-') for i in range(nchan)]
     for i in range(nchan):
