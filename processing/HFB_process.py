@@ -594,7 +594,7 @@ def hfb_to_visual_populations(hfb_db, dfelec,
 
 # %% Create category specific time series as input for mvgc toolbox
 
-def ts_all_categories(hfb, visual_chan, sfreq=250, tmin_crop=0.050, tmax_crop=0.250):
+def category_ts(hfb, visual_chan, sfreq=250, tmin_crop=0.050, tmax_crop=0.250):
     """
     Return time series in all conditions ready for mvgc analysis
     ----------
@@ -735,14 +735,60 @@ def parcellation_to_indices(visual_population, parcellation='group'):
                 group_indices[key][i] = group_indices[key][i]
     return group_indices
 
+#%% Return population specifc hfb
 
-# def db_transform_category(epochs, events, event_id=None, tmin=-0.4, tmax=-0.1, t_prestim=-0.5):
-#     """DB transform category specific epoched envelope to get closer to gaussianity"""
-#     baseline = extract_baseline(epochs, tmin=tmin, tmax=tmax)
-#     A = epochs.get_data()
-#     A = np.divide(A, baseline[np.newaxis,:,np.newaxis]) # divide by baseline
-#     A = np.nan_to_num(A)
-#     A = 10*np.log10(A) # convert to db
-#     hfb = mne.EpochsArray(A, epochs.info, events=events, 
-#                              event_id=event_id, tmin=t_prestim) 
-#     return hfb
+def ts_to_population_hfb(ts, visual_populations, parcellation='group'):
+    """
+    Return hfb of each population from category specific time series.
+    """
+    (nchan, nobs, ntrials, ncat) = ts.shape
+    populations_indices = parcellation_to_indices(visual_populations,
+                                                     parcellation=parcellation)
+    populations = populations_indices.keys()
+    npop = len(populations)
+    population_hfb = np.zeros((npop, nobs, ntrials, ncat))
+    for ipop, pop in enumerate(populations):
+        pop_indices = populations_indices[pop]
+        # population hfb is average of hfb over each population-specific channel
+        population_hfb[ipop,...] = np.average(ts[pop_indices,...], axis=0)
+    # Return list of populations to keep track of population ordering
+    populations = list(populations)
+    return population_hfb, populations
+
+#%% Create category time series with specific channels
+
+def pick_category_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.fif', 
+                     sub_id='DiAs', sfreq=250, tmin_crop=0, tmax_crop=1.75):
+    """
+    Create category time series with specific channels
+    """
+    subject = cf.Subject(sub_id)
+    visual_populations = subject.pick_visual_chan()
+    hfb, visual_chan = load_visual_hfb(sub_id= sub_id, proc= proc, 
+                                stage= stage)
+    hfb = hfb.pick_channels(picks)
+    
+    ts, time = category_ts(hfb, picks, sfreq=sfreq, tmin_crop=tmin_crop,
+                              tmax_crop=tmax_crop)
+    return ts, time
+
+#%% Cross subject functions
+
+def cross_subject_ts(subjects, proc='preproc', stage= '_BP_montage_HFB_raw.fif',
+                     sfreq=250, tmin_crop=0.50, tmax_crop=0.6):
+    """
+    Return cross subject time series in each condition
+    """
+    ts = [0]*len(subjects)
+    for s in range(len(subjects)):
+        sub_id = subjects[s]  
+        subject = cf.Subject(name=sub_id)
+        datadir = subject.processing_stage_path(proc=proc)
+        visual_chan = subject.pick_visual_chan()
+        hfb, visual_chan = load_visual_hfb(sub_id = sub_id, proc= proc, 
+                                stage= stage)
+        ts[s], time = category_ts(hfb, visual_chan, sfreq=sfreq, 
+                                  tmin_crop=tmin_crop, tmax_crop=tmax_crop)
+        # Beware might raise an error if shape don't match along axis !=0
+        # cross_ts = np.concatenate(ts, axis=0)
+    return ts, time

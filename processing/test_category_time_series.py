@@ -40,31 +40,11 @@ visual_populations = subject.pick_visual_chan()
 hfb, visual_chan = hf.load_visual_hfb(sub_id= sub_id, proc= proc, 
                             stage= stage)
 
-ts, time = hf.ts_all_categories(hfb, visual_chan, sfreq=sfreq, tmin_crop=tmin_crop, tmax_crop=tmax_crop)
-
-#%% Plot category HFB in each condition
-
-def ts_to_population_hfb(ts, visual_populations, parcellation='group'):
-    """
-    Return hfb of each population from category specific time series.
-    """
-    (nchan, nobs, ntrials, ncat) = ts.shape
-    populations_indices = hf.parcellation_to_indices(visual_populations,
-                                                     parcellation=parcellation)
-    populations = populations_indices.keys()
-    npop = len(populations)
-    population_hfb = np.zeros((npop, nobs, ntrials, ncat))
-    for ipop, pop in enumerate(populations):
-        pop_indices = populations_indices[pop]
-        # population hfb is average of hfb over each population-specific channel
-        population_hfb[ipop,...] = np.average(ts[pop_indices,...], axis=0)
-    # Return list of populations to keep track of population ordering
-    populations = list(populations)
-    return population_hfb, populations
+ts, time = hf.category_ts(hfb, visual_chan, sfreq=sfreq, tmin_crop=tmin_crop, tmax_crop=tmax_crop)
 
 #%%
 
-population_hfb, populations = ts_to_population_hfb(ts, visual_populations, parcellation='group')
+population_hfb, populations = hf.ts_to_population_hfb(ts, visual_populations, parcellation='group')
 evok_stat = fun.compute_evok_stat(population_hfb, axis=2)
 #%%
 
