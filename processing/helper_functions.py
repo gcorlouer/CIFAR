@@ -43,11 +43,11 @@ def concatenate_task_dataset(sub_id = 'DiAs'):
 #%% PSD utilities
 
 
-def HFB_to_psd(HFB, start=500, stop=None, duration=20, tmin=-0.1, tmax=20,
+def hfb_to_psd(hfb, start=500, stop=None, duration=20, tmin=-0.1, tmax=20,
                preload=True, baseline=None, fmin=0.1, fmax=20, adaptive=True,
                bandwidth=0.5, sfreq=500):
-    events = mne.make_fixed_length_events(HFB, start=start, stop=stop, duration=duration)
-    epochs = mne.Epochs(HFB, events, tmin=tmin, tmax=tmax,
+    events = mne.make_fixed_length_events(hfb, start=start, stop=stop, duration=duration)
+    epochs = mne.Epochs(hfb, events, tmin=tmin, tmax=tmax,
                         baseline=None, preload=True)
     X = epochs.copy().get_data()
     (n_trials, n_chans, n_times) = X.shape
@@ -83,7 +83,7 @@ def plot_psd(psd, freqs, average=True, label='PSD Rest', font = {'size':20}):
                 plt.axvline(x=bands[i], color='k')
             for i in range(len(xbands)):
                 plt.text(xbands[i]+1, ybands[i], bands_name[i], fontdict=font)
-    plt.title('Power spectral density of visually responsive HFB envelope', fontdict=font)
+    plt.title('Power spectral density of visually responsive hfb envelope', fontdict=font)
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
     # plt.text(5, -19, 'lol')
@@ -111,16 +111,16 @@ def LFP_to_dict(LFP, visual_chan, tmin=-0.5, tmax=1.75, sfreq=250):
     LFP_dict['DK_to_channel'] = DK_to_channel
     return LFP_dict
 
-#%% epoched HFB for all categories
+#%% epoch hfb for all categories
 
 
-def ts_all_categories(HFB, sfreq=250, tmin_crop=0.050, tmax_crop=0.250):
+def ts_all_categories(hfb, sfreq=250, tmin_crop=0.050, tmax_crop=0.250):
 
     categories = ['Rest', 'Face', 'Place']
     ncat = len(categories)
     ts = [0]*ncat
     for idx, cat in enumerate(categories):
-        epochs = hf.category_specific_HFB(HFB, cat=cat, tmin_crop=tmin_crop,
+        epochs = hf.category_specific_hfb(hfb, cat=cat, tmin_crop=tmin_crop,
                                        tmax_crop=tmax_crop)
         epochs = epochs.resample(sfreq=sfreq)
         X = epochs.get_data().copy()
@@ -149,17 +149,27 @@ def skew_kurtosis(epochs, tmin = -0.4, tmax = -0.1):
 
 #%% Evok utilities
 
-def epochs_to_evok(epochs):
+
+def epochs_to_evok_stat(epochs, axis=0):
     """
     Return average event related activity and standard deviation from epochs for one channel
     """
     X = epochs.copy().get_data()
-    evok = np.ndarray.flatten(np.mean(X, axis=0))
-    evok_sem = np.ndarray.flatten(stats.sem(X, axis =0))
+    evok_stat = compute_evok_stat(X, axis=axis)
+    return evok_stat
+
+
+def compute_evok_stat(X, axis=0):
+    """
+    Return average event related activity and standard deviation from data
+    """
+    evok = np.mean(X, axis=axis)
+    evok_sem = stats.sem(X, axis =axis)
     lower_confidence = evok - 1.96*evok_sem
     upper_confidence = evok + 1.96*evok_sem
     evok_stat = (evok, upper_confidence, lower_confidence)
     return evok_stat
+
 
 def plot_evok(evok_stat, times, ax, tmin, tmax, step, color='k', alpha=0.5):
     """
@@ -245,17 +255,17 @@ def epoch_win(epochs, sample_start=125, sample_stop = 375, step=5, window_size=2
     X, time_win = slide_window(X, time, sample_start, sample_stop, step, window_size)
     return X, time_win
 
-def ts_win_cat(HFB_visual, visual_chan, categories=['Rest', 'Face', 'Place'], tmin_crop=-0.5,
+def ts_win_cat(hfb_visual, visual_chan, categories=['Rest', 'Face', 'Place'], tmin_crop=-0.5,
                tmax_crop=1.75, sfreq=250, sample_start=125, sample_stop = 375, step=5, 
                window_size=20):
     ncat = len(categories)
     ts = [0]*ncat
     ts_time = [0]*ncat
     for idx, cat in enumerate(categories):
-        HFB = hf.category_specific_HFB(HFB_visual, cat=cat, tmin_crop = tmin_crop,
+        hfb = hf.category_specific_hfb(hfb_visual, cat=cat, tmin_crop = tmin_crop,
                                        tmax_crop=tmax_crop)
-        HFB = HFB.resample(sfreq=sfreq)
-        X, time_win = epoch_win(HFB, sample_start, sample_stop, step, window_size)
+        hfb = hfb.resample(sfreq=sfreq)
+        X, time_win = epoch_win(hfb, sample_start, sample_stop, step, window_size)
         # X_ordered = np.zeros_like(X)
         # sorted_ch_indices = visual_chan.index.tolist()
         # for ichan, i in enumerate(sorted_ch_indices):
@@ -287,17 +297,17 @@ def epoch_slide(epochs, sample_min=125, sample_max=375, kappa=3, segment_size=20
     time_slide = np.stack(time_slide)
     return X, time_slide
 
-def category_slided_ts(HFB_visual, visual_chan, categories=['Rest', 'Face', 'Place'], tmin_crop=-0.5,
+def category_slided_ts(hfb_visual, visual_chan, categories=['Rest', 'Face', 'Place'], tmin_crop=-0.5,
                        tmax_crop=1.75, sfreq=250, sample_min=125, sample_max=375,
                        kappa=3, segment_size=20):
     ncat = len(categories)
     ts = [0]*ncat
     ts_time = [0]*ncat
     for idx, cat in enumerate(categories):
-        HFB = hf.category_specific_HFB(HFB_visual, cat=cat, tmin_crop = tmin_crop,
+        hfb = hf.category_specific_hfb(hfb_visual, cat=cat, tmin_crop = tmin_crop,
                                        tmax_crop=tmax_crop)
-        HFB = HFB.resample(sfreq=sfreq)
-        X, time_slide = epoch_slide(HFB, sample_min, sample_max, kappa,
+        hfb = hfb.resample(sfreq=sfreq)
+        X, time_slide = epoch_slide(hfb, sample_min, sample_max, kappa,
                                     segment_size)
         X_ordered = np.zeros_like(X)
         sorted_ch_indices = visual_chan.index.tolist()
