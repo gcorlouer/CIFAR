@@ -759,7 +759,7 @@ def ts_to_population_hfb(ts, visual_populations, parcellation='group'):
 
 #%% Create category time series with specific channels
 
-def pick_category_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.fif', 
+def chan_specific_category_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.fif', 
                      sub_id='DiAs', sfreq=250, tmin_crop=0, tmax_crop=1.75):
     """
     Create category time series with specific channels
@@ -773,6 +773,33 @@ def pick_category_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.fif',
     ts, time = category_ts(hfb, picks, sfreq=sfreq, tmin_crop=tmin_crop,
                               tmax_crop=tmax_crop)
     return ts, time
+
+# %% Substract average event related amplitude
+
+def substract_AERA(ts, axis=2):
+    """
+    Substract the average event related amplitude. This is useful for stationarity
+    and gaussianity. Similar to detrending (remove trend due to transient increase)
+    upon stimuli presentation.
+    Pb: Maybe this remove too much interesting signal?
+    """
+    ntrials = ts.shape[axis]
+    ts_detrend = np.zeros_like(ts)
+    average_event_related_amplitude = np.average(ts, axis=axis)
+    for i in range(ntrials):
+        ts_detrend[:,:,i,:] = ts[:,:,i,:] - average_event_related_amplitude
+    return ts_detrend
+
+def plot_trials(ts, time, ichan=1, label='raw'):
+    """
+    Plot individual trials of a single channel.
+    """
+    sns.set()
+    ntrials = ts.shape[2]
+    for i in range(ntrials):
+        plt.subplot(7,8,i+1)
+        plt.plot(time, ts[ichan,:,i,1], label=label)
+        plt.axis('off')
 
 #%% Cross subject functions
 
