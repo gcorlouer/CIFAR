@@ -13,10 +13,12 @@ import re
 import scipy.stats as spstats
 import matplotlib.pyplot as plt
 import cifar_load_subject as cf
+import seaborn as sns
 
 from numpy import inf
 from statsmodels.stats.multitest import fdrcorrection, multipletests
 from netneurotools import stats as nnstats
+from scipy import stats
 
 # TODO: solve mismatch between events and epoch
 # %% Extract hfb envelope
@@ -778,6 +780,10 @@ def cross_subject_ts(subjects, proc='preproc', stage= '_BP_montage_HFB_raw.fif',
                      sfreq=250, tmin_crop=0.50, tmax_crop=0.6):
     """
     Return cross subject time series in each condition
+    ----------
+    Parameters
+    ----------
+    
     """
     ts = [0]*len(subjects)
     for s in range(len(subjects)):
@@ -792,3 +798,42 @@ def cross_subject_ts(subjects, proc='preproc', stage= '_BP_montage_HFB_raw.fif',
         # Beware might raise an error if shape don't match along axis !=0
         # cross_ts = np.concatenate(ts, axis=0)
     return ts, time
+
+def chanel_statistics(cross_ts, nbin=30, fontscale=1.6):
+    """
+    Plot skewness and kurtosis from cross channels time series to estimate
+    deviation from gaussianity.
+    """
+    (n, m, N, c) = cross_ts.shape
+    new_shape = (n, m*N, c)
+    X = np.reshape(cross_ts, new_shape)
+    skewness = np.zeros((n,c))
+    kurtosis = np.zeros((n,c))
+    for i in range(n):
+        for j in range(c):
+            a = X[i,:,j]
+            skewness[i,j] = stats.skew(a)
+            kurtosis[i,j] = stats.kurtosis(a)
+    # Plot skewness, kurtosis
+    categories = ['Rest', 'Face', 'Place']
+    skew_xticks = np.arange(-1,1,0.5)
+    kurto_xticks = np.arange(0,5,1)
+    sns.set(font_scale=fontscale)
+    f, ax = plt.subplots(2,3)
+    for i in range(c):
+        ax[0,i].hist(skewness[:,i], bins=nbin, density=False)
+        ax[0,i].set_xlim(left=-1, right=1)
+        ax[0,i].set_ylim(bottom=0, top=35)
+        ax[0,i].xaxis.set_ticks(skew_xticks)
+        ax[0,i].axvline(x=-0.5, color='k')
+        ax[0,i].axvline(x=0.5, color='k')
+        ax[0,i].set_xlabel(f'Skewness ({categories[i]})')
+        ax[0,i].set_ylabel('Number of channels')
+        ax[1,i].hist(kurtosis[:,i], bins=nbin, density=False)
+        ax[1,i].set_xlim(left=0, right=5)
+        ax[1,i].set_ylim(bottom=0, top=60)
+        ax[1,i].axvline(x=1, color='k')
+        ax[1,i].xaxis.set_ticks(kurto_xticks)
+        ax[1,i].set_xlabel(f'Excess kurtosis ({categories[i]})')
+        ax[1,i].set_ylabel('Number of channels')
+    return skewness, kurtosis
