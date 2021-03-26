@@ -778,19 +778,22 @@ def chan_specific_category_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.
 
 def substract_AERA(ts, axis=2):
     """
-    Substract the average event related amplitude. This is useful for stationarity
+    Substract the average event related amplitude for stimuli conditions. 
+    This is useful for stationarity
     and gaussianity. Similar to detrending (remove trend due to transient increase)
     upon stimuli presentation.
     Pb: Maybe this remove too much interesting signal?
     """
     ntrials = ts.shape[axis]
-    ts_detrend = np.zeros_like(ts)
+    # Remove AERA on Face and Place conditions only 
+    cat = [1,2]
     average_event_related_amplitude = np.average(ts, axis=axis)
-    for i in range(ntrials):
-        ts_detrend[:,:,i,:] = ts[:,:,i,:] - average_event_related_amplitude
-    return ts_detrend
+    for j in cat:
+        for i in range(ntrials):
+            ts[:,:,i,j] -= average_event_related_amplitude[:,:,j]
+    return ts
 
-def plot_trials(ts, time, ichan=1, label='raw'):
+def plot_trials(ts, time, ichan=1, icat=1, label='raw'):
     """
     Plot individual trials of a single channel.
     """
@@ -798,7 +801,7 @@ def plot_trials(ts, time, ichan=1, label='raw'):
     ntrials = ts.shape[2]
     for i in range(ntrials):
         plt.subplot(7,8,i+1)
-        plt.plot(time, ts[ichan,:,i,1], label=label)
+        plt.plot(time, ts[ichan,:,i,icat], label=label)
         plt.axis('off')
 
 #%% Cross subject functions
@@ -864,3 +867,44 @@ def chanel_statistics(cross_ts, nbin=30, fontscale=1.6):
         ax[1,i].set_xlabel(f'Excess kurtosis ({categories[i]})')
         ax[1,i].set_ylabel('Number of channels')
     return skewness, kurtosis
+
+#%% Sliding window analysis
+
+def sliding_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.fif', sub_id='DiAs',
+               tmin=0, tmax=1.75, win_size=0.2, step = 0.050, detrend=True, sfreq=250):
+    """
+    Return sliced time series into win_size time window between tmin and tmax,
+    overlap determined by parameter step
+    """
+    window = list_window(tmin=tmin, tmax=tmax, win_size=win_size, step=step)
+    nwin = len(window)
+    ts = [0]*nwin
+    time = [0]*nwin
+    for i in range(nwin):
+        tmin_crop=window[i][0]
+        tmax_crop=window[i][1]
+        ts[i], time[i] = chan_specific_category_ts(picks, sub_id= sub_id, proc= proc, 
+                                                      stage= stage, tmin_crop=tmin_crop, 
+                                                      tmax_crop=tmax_crop)
+        if detrend==True:
+            ts[i] = substract_AERA(ts[i], axis=2)
+        else:
+            continue
+    ts = np.stack(ts, axis=3)
+    time = np.stack(time, axis=-1)
+    return ts, time
+
+def list_window(tmin=0, tmax=1.75, win_size=0.2, step=0.050):
+    """
+    Sliding_ts subroutine. Returns sliced windows.
+    """
+    nwin = int(np.floor((tmax - win_size)/step))
+    win_start = [0]*nwin
+    win_stop = [0]*nwin
+    window = [0]*nwin
+    
+    for i in range(nwin):
+        win_start[i] = tmin + step*i
+        win_stop[i] = win_start[i] + win_size
+        window[i] = (win_start[i], win_stop[i])
+    return window
