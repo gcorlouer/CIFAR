@@ -30,7 +30,7 @@ picks = ['LTo1-LTo2', 'LTo5-LTo6']
 sfreq = 100
 tmin = 0
 tmax = 1.75
-win_size = 0.200
+win_size = 0.100
 step = 0.050
 detrend = True
 #%%
@@ -44,3 +44,9 @@ ts, time = hf.sliding_ts(picks, proc=proc, stage=stage, sub_id=sub_id,
                tmin=tmin, tmax=tmax, win_size=win_size, step = step, detrend=detrend, sfreq=sfreq)
 
 #%%
+
+ts_dict = {'data': ts, 'sfreq': sfreq, 'time': time, 'sub_id': sub_id}
+fname = sub_id + '_hfb_sliding.mat'
+fpath = datadir.joinpath(fname)
+
+savemat(fpath, ts_dict)
