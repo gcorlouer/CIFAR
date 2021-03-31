@@ -40,17 +40,17 @@ sig = GC['sig']
 
 #%% Sort indices
 
-F_sorted = np.zeros_like(F)
-sig_sorted = np.zeros_like(F)
-ch_idx_sorted = BP_chan.index.tolist()
-for isort, i in enumerate(ch_idx_sorted):
-    for jsort, j in enumerate(ch_idx_sorted):
-        F_sorted[isort,jsort,:] = F[i, j, :]
-        sig_sorted[isort,jsort,:] = sig[i, j, :]
+# F_sorted = np.zeros_like(F)
+# sig_sorted = np.zeros_like(F)
+# ch_idx_sorted = BP_chan.index.tolist()
+# for isort, i in enumerate(ch_idx_sorted):
+#     for jsort, j in enumerate(ch_idx_sorted):
+#         F_sorted[isort,jsort,:] = F[i, j, :]
+#         sig_sorted[isort,jsort,:] = sig[i, j, :]
 
 #%%
 
-plt.rcParams['font.size'] = '19'
+sns.set()
 
 ncat = F.shape[2]
 TE = np.zeros_like(F)

@@ -25,8 +25,8 @@ from statsmodels.tsa.tsatools import detrend
 sub_id= 'DiAs'
 proc= 'preproc' 
 stage= '_BP_montage_HFB_raw.fif'
-sfreq = 250
-tmin_crop = 0.010
+sfreq = 100
+tmin_crop = 0.500
 tmax_crop = 1.75
 
 #%%
@@ -39,7 +39,7 @@ ts, time = hf.category_ts(hfb, visual_chan, tmin_crop=tmin_crop, tmax_crop=tmax_
 
 
 #%% Detrend ts
-ts = hf.substract_AERA(ts, axis=2)
+#ts = hf.substract_AERA(ts, axis=2)
 #%% Save time series for GC analysis
 
 ts_dict = {'data': ts, 'sfreq': sfreq, 'time': time, 'sub_id': sub_id}

@@ -43,7 +43,7 @@ TE = np.zeros_like(F)
 for icat in range(ncat):
     TE[:,:,:, icat] = fun.GC_to_TE(F[:,:, :, icat],  sfreq=sfreq)
 #%%
-sns.set(font_scale=1.6)
+sns.set(font_scale=2)
 f, ax = plt.subplots(ncat,1)
 for i in range(ncat):
     for ichan in range(nchan):

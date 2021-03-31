@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar 26 10:25:04 2021
-
+This script prepare prepare the sliding window time series of specific 
+channels.
 @author: guime
 """
 
@@ -31,7 +32,7 @@ sfreq = 100
 tmin = 0
 tmax = 1.75
 win_size = 0.100
-step = 0.050
+step = 0.020
 detrend = True
 #%%
 subject = cf.Subject(sub_id)
