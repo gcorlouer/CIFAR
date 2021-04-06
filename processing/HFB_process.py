@@ -618,6 +618,31 @@ def category_ts(hfb, visual_chan, sfreq=250, tmin_crop=0.050, tmax_crop=0.250):
     ts = np.transpose(ts, (2, 3, 1, 0))
     return ts, time
 
+def category_lfp(lfp, visual_chan, tmin_crop=-0.5, tmax_crop =1.75, sfreq=500):
+    """
+    Return ieeg time series in all conditions ready for mvgc analysis
+    ----------
+    Parameters
+    ----------
+    visual_chan : list
+                List of visually responsive channels
+    """
+    categories = ['Rest', 'Face', 'Place']
+    ncat = len(categories)
+    ts = [0]*ncat
+    for idx, cat in enumerate(categories):
+        epochs, events = epoch_category(lfp, cat=cat, tmin=tmin_crop, tmax=tmax_crop)
+        epochs = epochs.resample(sfreq=sfreq)
+        time = epochs.times
+        sorted_indices = sort_indices(epochs, visual_chan)
+        X = sort_visual_chan(sorted_indices, epochs)
+        ts[idx] = X
+    
+    ts = np.stack(ts)
+    (ncat, ntrial, nchan, nobs) = ts.shape
+    ts = np.transpose(ts, (2, 3, 1, 0))
+    return ts, time
+
 
 def load_visual_hfb(sub_id= 'DiAs', proc= 'preproc', 
                             stage= '_BP_montage_hfb_raw.fif'):
@@ -774,6 +799,21 @@ def chan_specific_category_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.
                               tmax_crop=tmax_crop)
     return ts, time
 
+def chan_specific_category_lfp(picks, proc='preproc', stage='_BP_montage_preprocessed_raw.fif', 
+                     sub_id='DiAs', sfreq=250, tmin_crop=0, tmax_crop=1.75):
+    """
+    Create category specific LFP time series with specific channels
+    """
+    subject = cf.Subject(sub_id)
+    visual_populations = subject.pick_visual_chan()
+    lfp, visual_chan = load_visual_hfb(sub_id= sub_id, proc= proc, 
+                                stage= stage)
+    lfp = lfp.pick_channels(picks)
+    
+    ts, time = category_lfp(lfp, picks, sfreq=sfreq, tmin_crop=tmin_crop,
+                              tmax_crop=tmax_crop)
+    return ts, time
+
 # %% Substract average event related amplitude
 
 def substract_AERA(ts, axis=2):
@@ -873,7 +913,7 @@ def chanel_statistics(cross_ts, nbin=30, fontscale=1.6):
 def sliding_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.fif', sub_id='DiAs',
                tmin=0, tmax=1.75, win_size=0.2, step = 0.050, detrend=True, sfreq=250):
     """
-    Return sliced time series into win_size time window between tmin and tmax,
+    Return sliced hfb into win_size time window between tmin and tmax,
     overlap determined by parameter step
     """
     window = list_window(tmin=tmin, tmax=tmax, win_size=win_size, step=step)
@@ -884,6 +924,30 @@ def sliding_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.fif', sub_id='D
         tmin_crop=window[i][0]
         tmax_crop=window[i][1]
         ts[i], time[i] = chan_specific_category_ts(picks, sub_id= sub_id, proc= proc, 
+                                                      stage= stage, tmin_crop=tmin_crop, 
+                                                      tmax_crop=tmax_crop)
+        if detrend==True:
+            ts[i] = substract_AERA(ts[i], axis=2)
+        else:
+            continue
+    ts = np.stack(ts, axis=3)
+    time = np.stack(time, axis=-1)
+    return ts, time
+
+def sliding_lfp(picks, proc='preproc', stage='_BP_montage_preprocessed_raw.fif', sub_id='DiAs',
+               tmin=0, tmax=1.75, win_size=0.2, step = 0.050, detrend=True, sfreq=250):
+    """
+    Return sliced lfp into win_size time window between tmin and tmax,
+    overlap determined by parameter step
+    """
+    window = list_window(tmin=tmin, tmax=tmax, win_size=win_size, step=step)
+    nwin = len(window)
+    ts = [0]*nwin
+    time = [0]*nwin
+    for i in range(nwin):
+        tmin_crop=window[i][0]
+        tmax_crop=window[i][1]
+        ts[i], time[i] = chan_specific_category_lfp(picks, sub_id= sub_id, proc= proc, 
                                                       stage= stage, tmin_crop=tmin_crop, 
                                                       tmax_crop=tmax_crop)
         if detrend==True:
