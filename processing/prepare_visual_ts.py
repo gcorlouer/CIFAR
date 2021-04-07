@@ -34,7 +34,8 @@ datadir = subject.processing_stage_path(proc=proc)
 visual_populations = subject.pick_visual_chan()
 hfb, visual_chan =hf.load_visual_hfb(sub_id= sub_id, proc= proc, 
                             stage= stage)
-ts, time = hf.category_ts(hfb, visual_chan, tmin_crop=tmin_crop, tmax_crop=tmax_crop)
+ts, time = hf.category_ts(hfb, visual_chan, sfreq=sfreq,
+                          tmin_crop=tmin_crop, tmax_crop=tmax_crop)
 
 
 #%% Detrend ts
