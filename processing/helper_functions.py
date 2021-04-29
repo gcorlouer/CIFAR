@@ -59,31 +59,26 @@ def hfb_to_psd(hfb, start=500, stop=None, duration=20, tmin=-0.1, tmax=20,
 def plot_psd(psd, freqs, average=True, label='PSD Rest', font = {'size':20}):
     (nchan, nfreq) = psd.shape
     psd = np.log(psd)
-    bands = [4, 8, 16]
-    bands_name = [r'$\delta$', r'$\theta$', r'$\alpha$', r'$\beta$']
-    xbands = [2, 6, 12, 18]
-    ybands = [-19]*4
+    bands = [4, 8, 16, 31]
+    bands_name = [r'$\delta$', r'$\theta$', r'$\alpha$', r'$\beta$', r'$\gamma$']
+    xbands = [2, 6, 12, 18, 50]
+    ybands = [-35]*5
     if average is True:
         psd = np.mean(psd, axis=0)
         plt.plot(freqs, psd, label=label)
         plt.xscale('log')
-        plt.xlabel('Frequency (Hz)', fontdict=font)
-        plt.ylabel('Power (dB)', fontdict=font)
         for i in range(len(bands)):
-            plt.axvline(x=bands[i], color='k')
+            plt.axvline(x=bands[i], color='k', linestyle='--')
         for i in range(len(xbands)):
             plt.text(xbands[i]+1, ybands[i], bands_name[i], fontdict=font)
     else:
         for i in range(nchan):
             plt.plot(freqs, psd[i, :])
             plt.xscale('log')
-            plt.xlabel('Frequency (Hz)', fontdict=font)
-            plt.ylabel('Power (dB)', fontdict=font)
             for i in range(len(bands)):
-                plt.axvline(x=bands[i], color='k')
+                plt.axvline(x=bands[i], color='k', linestyle='--')
             for i in range(len(xbands)):
                 plt.text(xbands[i]+1, ybands[i], bands_name[i], fontdict=font)
-    plt.title('Power spectral density of visually responsive hfb envelope', fontdict=font)
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
     # plt.text(5, -19, 'lol')

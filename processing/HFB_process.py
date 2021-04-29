@@ -972,3 +972,40 @@ def list_window(tmin=0, tmax=1.75, win_size=0.2, step=0.050):
         win_stop[i] = win_start[i] + win_size
         window[i] = (win_start[i], win_stop[i])
     return window
+
+#%% Sliding window on continuous data
+
+def category_continous_sliding_ts(hfb, tmin=0, tmax=265, step=1, win_size=10):
+    """
+    Return category specific sliding ts from continuous hfb or lfp
+    """
+    # Extract resting state hfb and stimulus hfb
+    hfb_rest = hfb.copy().crop(tmin=60, tmax=325)
+    hfb_stim = hfb.copy().crop(tmin=425, tmax=690)
+    hfb_cat = [hfb_rest, hfb_stim]
+    ncat = len(hfb_cat)
+    ts = [0]*ncat
+    # Return sliding window ts
+    for i in range(ncat):
+        ts[i], time = make_continuous_sliding_ts(hfb_cat[i], tmin=tmin, tmax=tmax, step=step, 
+                                              win_size=win_size)
+    ts = np.stack(ts, axis=-1)
+    return ts, time
+
+def make_continuous_sliding_ts(hfb, tmin=0, tmax=265, step=1, win_size=10):
+    """
+    Return sliding window from continuous hfb or lfp
+    """
+    window = list_window(tmin=tmin, tmax=tmax, win_size=win_size, step=step)
+    nwin = len(window)
+    ts = [0]*nwin
+    time = [0]*nwin
+    # List windowed hfb
+    for i in range(nwin):
+        tmin_crop = window[i][0]
+        tmax_crop = window[i][1]
+        ts[i] = hfb.copy().crop(tmin=tmin_crop, tmax=tmax_crop).get_data()
+        time[i] = hfb.copy().crop(tmin=tmin_crop, tmax=tmax_crop).times
+    ts = np.stack(ts, axis=-1)
+    time = np.stack(time, axis=-1)
+    return ts, time

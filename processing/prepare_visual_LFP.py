@@ -31,8 +31,8 @@ visual_chan_table = 'visual_channels_BP_montage.csv'
 proc = 'preproc' 
 sfreq = 200;
 # picks = ['LGRD58-LGRD59', 'LGRD60-LGRD61', 'LTo1-LTo2', 'LTo3-LTo4']
-tmin_crop = 0.050
-tmax_crop = 0.300
+tmin_crop = 0.200
+tmax_crop = 1.5
 stage= '_BP_montage_preprocessed_raw.fif'
 ext = '.fif'
 categories = ['Rest', 'Face', 'Place']
@@ -43,7 +43,7 @@ subject = cf.Subject(name=sub_id)
 datadir = subject.processing_stage_path(proc=proc)
 visual_chan = subject.pick_visual_chan()
 
-LFP = subject.load_raw_data(proc=proc, stage=stage)
+LFP = subject.load_data(proc=proc, stage=stage)
 
 def ts_all_categories(HFB, tmin_crop=0.050, tmax_crop=0.250):
 

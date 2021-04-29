@@ -26,10 +26,9 @@ from statsmodels.tsa.tsatools import detrend
 sub_id= 'DiAs'
 proc= 'preproc' 
 stage= '_BP_montage_preprocessed_raw.fif'
-picks = ['LTo1-LTo2', 'LTo5-LTo6']
 sfreq = 250
-tmin = 0
-tmax = 1.75
+tmin = 0.200
+tmax = 1.50
 detrend = False
 #%%
 subject = cf.Subject(sub_id)
@@ -37,11 +36,12 @@ datadir = subject.processing_stage_path(proc=proc)
 visual_populations = subject.pick_visual_chan()
 lfp, visual_chan =hf.load_visual_hfb(sub_id= sub_id, proc= proc, 
                             stage= stage)
+# High pass filter
+lfp = lfp.copy().filter(l_freq=1, h_freq=None)
 #%%
 
-ts, time = hf.chan_specific_category_lfp(picks, tmin_crop=tmin, sub_id=sub_id,
-                                         tmax_crop =tmax, sfreq=sfreq, proc=proc,
-                                         stage=stage)
+ts, time = hf.category_lfp(lfp, visual_chan, tmin_crop=tmin, tmax_crop =tmax, 
+                           sfreq=sfreq)
 
 
 #%%

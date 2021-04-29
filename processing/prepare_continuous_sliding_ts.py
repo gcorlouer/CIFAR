@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Mar 26 10:25:04 2021
-This script prepare prepare the sliding window time series of specific 
-channels.
+Created on Tue Apr 13 12:01:57 2021
+
 @author: guime
 """
-
 
 
 import HFB_process as hf
@@ -28,26 +26,30 @@ sub_id= 'DiAs'
 proc= 'preproc' 
 stage= '_BP_montage_HFB_raw.fif'
 picks = ['LTo1-LTo2', 'LTo5-LTo6']
-sfreq = 100
-tmin = 0
-tmax = 1.5
-win_size = 0.100
-step = 0.020
+sfreq = 200
+win_size = 20
+step = 2
 detrend = False
+tmin =0
+tmax = 265
 #%%
+
 subject = cf.Subject(sub_id)
 datadir = subject.processing_stage_path(proc=proc)
 visual_populations = subject.pick_visual_chan()
+hfb, visual_chan = hf.load_visual_hfb(sub_id= sub_id, proc= proc, 
+                            stage= stage)
+hfb = hfb.pick_channels(picks)
 
-#%%
+#%% Continuous sliding window
 
-ts, time = hf.sliding_ts(picks, proc=proc, stage=stage, sub_id=sub_id,
-               tmin=tmin, tmax=tmax, win_size=win_size, step = step, detrend=detrend, sfreq=sfreq)
+ts, time = hf.category_continous_sliding_ts(hfb, tmin=tmin, tmax=tmax,
+                                            step=step, win_size=win_size)
 
-#%%
+#%% Save ts
 
 ts_dict = {'data': ts, 'sfreq': sfreq, 'time': time, 'sub_id': sub_id}
-fname = sub_id + '_hfb_sliding.mat'
+fname = sub_id + '_continuous_sliding_ts.mat'
 fpath = datadir.joinpath(fname)
 
 savemat(fpath, ts_dict)
