@@ -11,7 +11,7 @@ import cifar_load_subject as cf
 import mne
 import matplotlib
 import matplotlib.pyplot as plt
-
+import seaborn as sns
 from pathlib import Path, PurePath
 
 #%% Parameters
@@ -46,7 +46,7 @@ bands = hf.freq_bands()
 HFA =  hf.extract_envelope(raw, l_freq = 60, band_size=100.0, l_trans_bandwidth= 10.0, 
                      h_trans_bandwidth= 10.0, filter_length='auto', phase='minimum')
 
-HFB = hf.extract_HFB(raw, l_freq=60.0, nband=6, band_size=20.0,
+HFB = hf.extract_hfb(raw, l_freq=60.0, nband=6, band_size=20.0,
                 l_trans_bandwidth= 10.0,h_trans_bandwidth= 10.0,
                 filter_length='auto', phase='minimum')
 
@@ -64,6 +64,7 @@ HFA = HFA * 1e6
 #%% Plot result
 # Check one channel envelope extraction over 2s time segment
 matplotlib.rcParams.update({'font.size': 18})
+sns.set()
 
 fig, ax = plt.subplots(3,1)
 ax[0].plot(times, LFP_filt[ichan, :], label='Bandpass LFP')

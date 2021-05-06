@@ -22,7 +22,7 @@ from scipy.io import savemat
 from statsmodels.tsa.tsatools import detrend
 #%%
 
-sub_id= 'DiAs'
+sub_id= 'JuRo'
 proc= 'preproc' 
 stage= '_BP_montage_HFB_raw.fif'
 sfreq = 100

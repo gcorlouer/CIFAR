@@ -55,7 +55,7 @@ prestim_amplitude = fun.skew_kurtosis(hfb, tmin = tmin_prestim, tmax = tmax_pres
 postim_amplitude = fun.skew_kurtosis(hfb, tmin = tmin_postim, tmax = tmax_postim)
 #%% Compute evok response
 
-evok_stat = fun.epochs_to_evok(hfb)
+evok_stat = fun.epochs_to_evok_stat(hfb)
 times = hfb.times
 #%% Plot Histogram and envelope
 matplotlib.rcParams.update({'font.size': 20})
