@@ -8,7 +8,6 @@ Created on Thu Mar 25 11:54:36 2021
 
 
 import HFB_process as hf
-import cifar_load_subject as cf
 import numpy as np
 import mne
 import matplotlib.pyplot as plt
@@ -22,14 +21,14 @@ from scipy.io import savemat
 from statsmodels.tsa.tsatools import detrend
 #%%
 
-sub_id= 'JuRo'
+sub_id= 'DiAs'
 proc= 'preproc' 
 stage= '_BP_montage_HFB_raw.fif'
 sfreq = 100
 tmin_crop = 0.200
 tmax_crop = 1.5
 #%%
-subject = cf.Subject(sub_id)
+subject = hf.Subject(sub_id)
 datadir = subject.processing_stage_path(proc=proc)
 visual_populations = subject.pick_visual_chan()
 hfb, visual_chan =hf.load_visual_hfb(sub_id= sub_id, proc= proc, 

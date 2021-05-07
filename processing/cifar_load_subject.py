@@ -5,7 +5,9 @@ Created on Fri Jun 26 17:32:06 2020
 This script contains functions to load dataset of interest given a specific 
 subject
 
-TODO: Specify dataset names at different processing stage
+TODO: 
+-Specify dataset names at different processing stage
+-Merge script with HFB_process script
 @author: guime
 """
 #     
@@ -37,18 +39,18 @@ class Subject:
 
     def load_data(self, proc= 'preproc', stage= '_BP_montage_HFB_raw.fif',
                   preload=True, epo=False):
-    """
-    Load data at specific processing stage into RAW object
-    """
-    datadir = self.processing_stage_path(proc=proc)
-    sub = self.name
-    fname = sub + stage
-    fpath = datadir.joinpath(fname)
-    if epo==False:
-        data = mne.io.read_raw_fif(fpath, preload=preload)
-    else:
-        data = mne.read_epochs(fpath, preload=preload)
-    return data
+        """
+        Load data at specific processing stage into RAW object
+        """
+        datadir = self.processing_stage_path(proc=proc)
+        sub = self.name
+        fname = sub + stage
+        fpath = datadir.joinpath(fname)
+        if epo==False:
+            data = mne.io.read_raw_fif(fpath, preload=preload)
+        else:
+            data = mne.read_epochs(fpath, preload=preload)
+        return data
 
     def processing_stage_path(self, proc='raw_signal'):
         """
@@ -141,12 +143,12 @@ class Subject:
 #%% Return electrodes info
 
     def df_electrodes_info(self):
-    """"
-    Return electrode info as dataframe
-    """
-    electrodes_file = self.electrodes_file()
-    df_electrodes_info = pd.read_csv(electrodes_file)
-    return df_electrodes_info
+        """"
+        Return electrode info as dataframe
+        """
+        electrodes_file = self.electrodes_file()
+        df_electrodes_info = pd.read_csv(electrodes_file)
+        return df_electrodes_info
     
     def electrodes_file(self):
         """
@@ -183,16 +185,16 @@ class Subject:
         return brodman
 
     def chan2brodman(df_electrodes_info, electrode_name):
-    """
-    Given channel name return corresponding brodman area
-    """
-    brodman = df_electrodes_info['Brodman'].loc[df_electrodes_info['electrode_name']== electrode_name]
-    brodman = brodman.values
-    if len(brodman)==1: #known ROI
-        brodman = brodman[0]
-    else:
-        brodman = 'unknown'
-    return brodman
+        """
+        Given channel name return corresponding brodman area
+        """
+        brodman = df_electrodes_info['Brodman'].loc[df_electrodes_info['electrode_name']== electrode_name]
+        brodman = brodman.values
+        if len(brodman)==1: #known ROI
+            brodman = brodman[0]
+        else:
+            brodman = 'unknown'
+        return brodman
 
     def chan2DK(df_electrodes_info, electrode_name):
         """
