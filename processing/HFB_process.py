@@ -263,122 +263,133 @@ def cifar_cohort_path(home='~'):
 
 # %% Extract hfb envelope
 
-def extract_hfb(raw, l_freq=60.0, nband=6, band_size=20.0, l_trans_bandwidth= 10.0,
-                h_trans_bandwidth= 10.0, filter_length='auto', phase='minimum'):
-    """
-    Extract the high frequency broadband (hfb) from LFP iEEG signal.
-    ----------
-    Parameters
-    ----------
-    raw: MNE raw object
-        the LFP data to be filtered (in MNE python raw structure)
-    l_freq: float, optional
-            lowest frequency in Hz
-    nband: int, optional
-           Number of frequency bands
-    band_size: float, optional
-                size of frequency band in Hz
-    See mne.io.Raw.filter documentation for additional optional parameters
-    -------
-    Returns
-    -------
-    hfb: MNE raw object
-        The high frequency broadband
-    """
-    nobs = len(raw.times)
-    nchan = len(raw.info['ch_names'])
-    bands = freq_bands(l_freq=l_freq, nband=nband, band_size=band_size)
-    hfb = np.zeros(shape=(nchan, nobs))
-    mean_amplitude = np.zeros(shape=(nchan,))
-    
-    for band in bands:
-        # extract band specific envelope
-        envelope = extract_envelope(raw, l_freq=band, band_size=band_size)
-    # hfb is weighted average of bands specific envelope over high gamma
-        env_norm = mean_normalise(envelope)
-        hfb += env_norm
-        mean_amplitude += np.mean(envelope, axis=1)
-    hfb = hfb/nband
-    # Convert hfb in volts
-    hfb = hfb * mean_amplitude[:,np.newaxis]
-    hfb = np.nan_to_num(hfb) # convert NaN to 0
-    # Create Raw object for further MNE processing
-    hfb = mne.io.RawArray(hfb, raw.info)
-    hfb.set_annotations(raw.annotations)
-    return hfb
+class Hfb:
+    def __init__(self, l_freq=60.0, nband=6, band_size=20.0, l_trans_bandwidth= 10.0,
+                h_trans_bandwidth= 10.0, filter_length='auto', phase='minimum',
+                fir_window='blackman'):
+        self.l_freq = l_freq
+        self.nband = nband
+        self.band_size = band_size
+        self.l_trans_bandwidth = l_trans_bandwidth
+        self.h_trans_bandwidth = h_trans_bandwidth
+        self.filter_length = filter_length
+        self.phase = phase
+        self.fir_window = fir_window
 
-def freq_bands(l_freq=60.0, nband=6, band_size=20.0):
-    """
-    Create a list of 20Hz spaced frequencies from [60, 160]Hz (high gamma)
-    These frequencies will be used to banpass the iEEG signal for 
-    high frequency envelope extraction
-    
-    Parameters
-    ----------
-    l_freq: float, optional
-            lowest frequency in Hz
-    nband: int, optional
-           Number of frequency bands
-    band_size: int, optional
-                size of frequency band in Hz
-    
-    Returns
-    -------
-    bands: list
-            List of frequency bands
-            
-    """
-    bands = [l_freq + i * band_size for i in range(0, nband)]
-    return bands
+    def extract_hfb(self, raw):
+        """
+        Extract the high frequency broadband (hfb) from LFP iEEG signal.
+        ----------
+        Parameters
+        ----------
+        raw: MNE raw object
+            the LFP data to be filtered (in MNE python raw structure)
+        l_freq: float, optional
+                lowest frequency in Hz
+        nband: int, optional
+               Number of frequency bands
+        band_size: float, optional
+                    size of frequency band in Hz
+        See mne.io.Raw.filter documentation for additional optional parameters
+        -------
+        Returns
+        -------
+        hfb: MNE raw object
+            The high frequency broadband
+        """
+        nobs = len(raw.times)
+        nchan = len(raw.info['ch_names'])
+        bands = self.freq_bands()
+        hfb = np.zeros(shape=(nchan, nobs))
+        mean_amplitude = np.zeros(shape=(nchan,))
+        
+        for band in bands:
+            # extract band specific envelope
+            envelope = self.extract_envelope(raw)
+        # hfb is weighted average of bands specific envelope over high gamma
+            env_norm = self.mean_normalise(envelope)
+            hfb += env_norm
+            mean_amplitude += np.mean(envelope, axis=1)
+        hfb = hfb/nband
+        # Convert hfb in volts
+        hfb = hfb * mean_amplitude[:,np.newaxis]
+        hfb = np.nan_to_num(hfb) # convert NaN to 0
+        # Create Raw object for further MNE processing
+        hfb = mne.io.RawArray(hfb, raw.info)
+        hfb.set_annotations(raw.annotations)
+        return hfb
 
-def extract_envelope(raw, l_freq=60.0, band_size=20.0, l_trans_bandwidth= 10.0, 
-                     h_trans_bandwidth= 10.0, filter_length='auto', phase='minimum'):
-    """
-    Extract the envelope of a bandpass signal. The filter is constructed 
-    using MNE python filter function. Hilbert transform is computed from MNE
-    apply_hilbert() function. Filter and Hilber function themselves rely mostly
-    on scipy signal filtering and hilbert funtions.
-    ----------
-    Parameters
-    ----------
-    raw: MNE raw object
-        the LFP data to be filtered (in MNE python raw structure)
-    %(l_freq)s
-    %(band_size)s
-    See mne.io.Raw.filter documentation for additional optional parameters
-    
-    -------
-    Returns
-    -------
-    envelope: MNE raw object
-             The envelope of the bandpass signal
-    """
-    raw_band = raw.copy().filter(l_freq=l_freq, h_freq=l_freq+band_size,
-                                 phase=phase, filter_length=filter_length,
-                                 l_trans_bandwidth= l_trans_bandwidth, 
-                                 h_trans_bandwidth= h_trans_bandwidth,
-                                     fir_window='blackman')
-    envelope = raw_band.copy().apply_hilbert(envelope=True).get_data()
-    return envelope
+    def freq_bands(self):
+        """
+        Create a list of 20Hz spaced frequencies from [60, 160]Hz (high gamma)
+        These frequencies will be used to banpass the iEEG signal for 
+        high frequency envelope extraction
+        
+        Parameters
+        ----------
+        l_freq: float, optional
+                lowest frequency in Hz
+        nband: int, optional
+               Number of frequency bands
+        band_size: int, optional
+                    size of frequency band in Hz
+        
+        Returns
+        -------
+        bands: list
+                List of frequency bands
+                
+        """
+        bands = [self.l_freq + i * self.band_size for i in range(0, nband)]
+        return bands
 
-def mean_normalise(envelope):
-    """
-    Normalise the envelope by its mean. Useful for extracting hfb which is a
-    weighted average of each envelope accross 20Hz frequency bands.
-    ----------
-    Parameters
-    ----------
-    envelope: MNE raw object
-            The envelope of the band pass signal
-    -------
-    Returns
-    -------
-    envelope_norm: MNE raw object
-                    The mean normalised envelope
-    """
-    envelope_mean = np.mean(envelope, axis=1)
-    envelope_norm = np.divide(envelope, envelope_mean[:,np.newaxis])
-    return envelope_norm
+    def extract_envelope(self, raw):
+        """
+        Extract the envelope of a bandpass signal. The filter is constructed 
+        using MNE python filter function. Hilbert transform is computed from MNE
+        apply_hilbert() function. Filter and Hilber function themselves rely mostly
+        on scipy signal filtering and hilbert funtions.
+        ----------
+        Parameters
+        ----------
+        raw: MNE raw object
+            the LFP data to be filtered (in MNE python raw structure)
+        %(l_freq)s
+        %(band_size)s
+        See mne.io.Raw.filter documentation for additional optional parameters
+        
+        -------
+        Returns
+        -------
+        envelope: MNE raw object
+                 The envelope of the bandpass signal
+        """
+        raw_band = raw.copy().filter(l_freq=self.l_freq, h_freq=self.l_freq+self.band_size,
+                                     phase=self.phase, filter_length=self.filter_length,
+                                     l_trans_bandwidth= self.l_trans_bandwidth, 
+                                     h_trans_bandwidth= self.h_trans_bandwidth,
+                                         fir_window=self.fir_window)
+        envelope = raw_band.copy().apply_hilbert(envelope=True).get_data()
+        return envelope
+
+    def mean_normalise(self, envelope):
+        """
+        Normalise the envelope by its mean. Useful for extracting hfb which is a
+        weighted average of each envelope accross 20Hz frequency bands.
+        ----------
+        Parameters
+        ----------
+        envelope: MNE raw object
+                The envelope of the band pass signal
+        -------
+        Returns
+        -------
+        envelope_norm: MNE raw object
+                        The mean normalised envelope
+        """
+        envelope_mean = np.mean(envelope, axis=1)
+        envelope_norm = np.divide(envelope, envelope_mean[:,np.newaxis])
+        return envelope_norm
 #%% Normalise with baseline, log transform and epoch hfb
 
 def raw_to_hfb_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_prestim = -0.5,

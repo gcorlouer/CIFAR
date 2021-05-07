@@ -20,7 +20,7 @@ proc = 'preproc'
 fname = sub_id + '_BP_montage_preprocessed_raw.fif'
 tmin = 100
 tmax = 102
-l_freq = 70
+l_freq = 60
 band_size=20.0
 l_trans_bandwidth= 10.0
 h_trans_bandwidth= 10.0
@@ -38,3 +38,7 @@ fpath = fpath.joinpath(fname)
 raw = mne.io.read_raw_fif(fpath, preload=True)
 raw = raw.crop(tmin=tmin, tmax=tmax)
 times = raw.times
+
+HFB = hf.extract_hfb(raw, l_freq=l_freq, nband=nband, band_size=band_size,
+                l_trans_bandwidth= l_trans_bandwidth,h_trans_bandwidth= h_trans_bandwidth,
+                filter_length=filter_length, phase=phase)
