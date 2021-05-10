@@ -264,6 +264,9 @@ def cifar_cohort_path(home='~'):
 # %% Extract hfb envelope
 
 class Hfb:
+    """
+    Class for HFB extraction
+    """
     def __init__(self, l_freq=60.0, nband=6, band_size=20.0, l_trans_bandwidth= 10.0,
                 h_trans_bandwidth= 10.0, filter_length='auto', phase='minimum',
                 fir_window='blackman'):
@@ -310,7 +313,7 @@ class Hfb:
             env_norm = self.mean_normalise(envelope)
             hfb += env_norm
             mean_amplitude += np.mean(envelope, axis=1)
-        hfb = hfb/nband
+        hfb = hfb/self.nband
         # Convert hfb in volts
         hfb = hfb * mean_amplitude[:,np.newaxis]
         hfb = np.nan_to_num(hfb) # convert NaN to 0
@@ -340,7 +343,7 @@ class Hfb:
                 List of frequency bands
                 
         """
-        bands = [self.l_freq + i * self.band_size for i in range(0, nband)]
+        bands = [self.l_freq + i * self.band_size for i in range(0, self.nband)]
         return bands
 
     def extract_envelope(self, raw):
@@ -392,259 +395,280 @@ class Hfb:
         return envelope_norm
 #%% Normalise with baseline, log transform and epoch hfb
 
-def raw_to_hfb_db(raw, l_freq=60.0, nband=6, band_size=20.0, t_prestim = -0.5,
-                  l_trans_bandwidth= 10.0, h_trans_bandwidth= 10.0, 
-                  filter_length='auto', phase='minimum', t_postim = 1.75, 
-                  baseline=None, preload=True, tmin=-0.4, tmax=-0.1, mode='logratio'):
+class Hfb_db(Hfb):
     """
-    Compute hfb in decibel from raw LFP
-    ----------
-    Parameters
-    ----------
-    raw: MNE raw object
-        The raw LFP
-    t_postim: float, optional
-        post stimulus epoch stop
-    t_prestim: float
-        pre stimulus epoch starts
-    tmin: float
-        baseline starts
-    tmax: float
-        baseline stops
-    See MNE python documentation for other optional parameters
+    Class for HFB rescaling and dB transform HFB
     """
-    hfb = extract_hfb(raw, l_freq=l_freq, nband=nband, band_size=band_size,
-                l_trans_bandwidth= l_trans_bandwidth, h_trans_bandwidth= h_trans_bandwidth,
-                filter_length=filter_length, phase=phase)
-    epochs = epoch_hfb(hfb, t_prestim = t_prestim, t_postim = t_postim, baseline=baseline,
-                       preload=preload)
-    hfb_db = db_transform(epochs, tmin=tmin, tmax=tmax, t_prestim=t_prestim, 
-                          mode='logratio')
-    return hfb_db
+    def __init__(self, t_prestim=-0.5, t_postim = 1.75, baseline=None,
+                 preload=True, tmin=-0.4, tmax=-0.1, mode='logratio'):
+        super().__init__(t_prestim=-0.5, t_postim = 1.75, baseline=None,
+                         preload=True, tmin=-0.4, tmax=-0.1, mode='logratio')
+        self.t_prestim = t_prestim
+        self.t_postim = t_postim
+        self.baselin = baseline
+        self.preload = preload
+        self.tmin = tmin
+        self.tmax = tmax
+        self.mode = mode
+
+    def raw_to_hfb_db(self, raw):
+        """
+        Compute hfb in decibel from raw LFP
+        ----------
+        Parameters
+        ----------
+        raw: MNE raw object
+            The raw LFP
+        t_postim: float, optional
+            post stimulus epoch stop
+        t_prestim: float
+            pre stimulus epoch starts
+        tmin: float
+            baseline starts
+        tmax: float
+            baseline stops
+        See MNE python documentation for other optional parameters
+        """
+        hfb = self.extract_hfb(raw)
+        epochs = self.epoch_hfb(hfb)
+        hfb_db = self.db_transform(epochs)
+        return hfb_db
 
 
-def epoch_hfb(hfb, t_prestim = -0.5, t_postim = 1.75, baseline=None, preload=True):
-    """
-    Epoch stimulus condition hfb using MNE Epochs function
-    """
-    events, event_id = mne.events_from_annotations(hfb) 
-    epochs = mne.Epochs(hfb, events, event_id= event_id, tmin=t_prestim, 
-                    tmax=t_postim, baseline=baseline,preload=preload)
-    return epochs
+    def epoch_hfb(self, hfb):
+        """
+        Epoch stimulus condition hfb using MNE Epochs function
+        """
+        events, event_id = mne.events_from_annotations(hfb) 
+        epochs = mne.Epochs(hfb, events, event_id= event_id, tmin=self.t_prestim, 
+                        tmax=self.t_postim, baseline=self.baseline,preload=self.preload)
+        return epochs
 
 
-def db_transform(epochs, tmin=-0.4, tmax=-0.1, t_prestim = -0.5, mode='logratio'):
-    """
-    Normalise hfb with pre stimulus baseline and log transform for result in dB
-    Allows for cross channel comparison via a single scale.
-    """
-    events = epochs.events
-    event_id = epochs.event_id
-    # Drop boundary event for compatibility. This does not affect results.
-    # del event_id['boundary'] 
-    A = epochs.get_data()
-    times = epochs.times
-    # db transform
-    A = 10*mne.baseline.rescale(A,times,baseline=(tmin,tmax),mode=mode)
-    # Create epoch object from array
-    hfb = mne.EpochsArray(A, epochs.info, events=events, 
-                             event_id=event_id, tmin=t_prestim)
-    return hfb
+    def db_transform(self, epochs):
+        """
+        Normalise hfb with pre stimulus baseline and log transform for result in dB
+        Allows for cross channel comparison via a single scale.
+        """
+        events = epochs.events
+        event_id = epochs.event_id
+        # Drop boundary event for compatibility. This does not affect results.
+        # del event_id['boundary'] 
+        A = epochs.get_data()
+        times = epochs.times
+        # db transform
+        A = 10*mne.baseline.rescale(A,times,baseline=(self.tmin,self.tmax),
+                                    mode=self.mode)
+        # Create epoch object from array
+        hfb = mne.EpochsArray(A, epochs.info, events=events, 
+                                 event_id=event_id, tmin=self.t_prestim)
+        return hfb
 
 
-def extract_baseline(epochs, tmin=-0.4, tmax=-0.1):
-    """
-    Extract baseline by averaging prestimulus accross time and trials. From 
-    testing, it does not differs much to MNE baseline.rescale, so might as well
-    use MNE
-    """
-    baseline = epochs.copy().crop(tmin=tmin, tmax=tmax) # Extract prestimulus baseline
-    baseline = baseline.get_data()
-    baseline = np.mean(baseline, axis=(0,2)) # average over time and trials
-    return baseline 
+    def extract_baseline(self, epochs):
+        """
+        Extract baseline by averaging prestimulus accross time and trials. From 
+        testing, it does not differs much to MNE baseline.rescale, so might as well
+        use MNE
+        """
+        baseline = epochs.copy().crop(tmin=self.tmin, tmax=self.tmax) # Extract prestimulus baseline
+        baseline = baseline.get_data()
+        baseline = np.mean(baseline, axis=(0,2)) # average over time and trials
+        return baseline 
 
 
 #%% Detect visually responsive populations
 
-def detect_visual_chan(hfb_db, tmin_prestim=-0.4, tmax_prestim=-0.1,tmin_postim=0.1,
-                       tmax_postim=0.5, alpha=0.05, zero_method='pratt', 
-                       alternative='greater'):
+class Visual_response:
     """
-    Detect visually responsive channels by testing hypothesis of no difference 
-    between prestimulus and postimulus HFB amplitude.
-    ----------
-    Parameters
-    ----------
-    hfb_db: MNE raw object
-            HFB of iEEG in decibels
-    tmin_prestim: float
-                starting time prestimulus amplitude
-    tmax_preststim: float
-                    stoping time prestimlus amplituds
-    tmin_postim: float
-                 starting time postimuls amplitude
-    tmax_postim: float
-                stopping time postimulus amplitude
-    alpha: float
-        significance threshold to reject the null
-    From scipy.stats.wilcoxon:
-    alternative: {“two-sided”, “greater”, “less”}, optional
-    zero_method: {“pratt”, “wilcox”, “zsplit”}, optional
-    -------
-    Returns
-    -------
-    visual_chan: list.
-                List of visually responsive channels
-    effect_size: list
-                 visual responsivity effect size
+    Detect visually responsive channels
     """
-    A_prestim = crop_hfb(hfb_db, tmin=tmin_prestim, tmax=tmax_prestim)
-    A_postim = crop_hfb(hfb_db, tmin=tmin_postim, tmax=tmax_postim)
-    reject, pval_correct, tstat = multiple_wilcoxon_test(A_postim, A_prestim,
-                                                         alpha=alpha, 
-                                                         zero_method=zero_method,
-                                                         alternative=alternative)
-    visual_responsivity = compute_visual_responsivity(A_postim, A_prestim)
-    visual_chan, effect_size = visual_chans_stats(reject, visual_responsivity, hfb_db)
-    return visual_chan, effect_size
-
-
-def crop_hfb(hfb_db, tmin=-0.5, tmax=-0.05):
-    """
-    crop hfb between over [tmin tmax].
-    Input : MNE raw object
-    Return: array
-    """
-    A = hfb_db.copy().crop(tmin=tmin, tmax=tmax).get_data()
-    return A
-
-
-def crop_stim_hfb(hfb_db, stim_id, tmin=-0.5, tmax=-0.05):
-    """
-    crop condition specific hfb between over [tmin tmax].
-    Input : MNE raw object
-    Return: array
-    """
-    A = hfb_db[stim_id].copy().crop(tmin=tmin, tmax=tmax).get_data()
-    return A
-
-
-def multiple_perm_test(A_postim, A_prestim, nchans, alpha=0.05):
-    A_postim = np.mean(A_postim, axis=-1)
-    A_prestim = np.mean(A_prestim, axis=-1)
-    # Initialise inflated p values
-    pval = [0]*nchans
-    tstat = [0]*nchans
-    # Compute inflated stats
-    for i in range(0,nchans):
-        tstat[i], pval[i] = nnstats.permtest_rel(A_postim[:,i], A_prestim[:,i])  
-    # Correct for multiple testing    
-    reject, pval_correct = fdrcorrection(pval, alpha=alpha)
-    return reject
-
-
-def multiple_wilcoxon_test(A_postim, A_prestim, zero_method='pratt', alternative = 'greater', alpha=0.05):
-    """
-    Wilcoxon test hypothesis of no difference between prestimulus and postimulus amplitude
-    Correct for multilple hypothesis test.
-    ----------
-    Parameters
-    ----------
-    A_postim: (...,times) array
-            Postimulus amplitude
-    A_prestim: (...,times) array
-                Presimulus amplitude
-    alpha: float
-        significance threshold to reject the null
-    From scipy.stats.wilcoxon:
-    alternative: {“two-sided”, “greater”, “less”}, optional
-    zero_method: {“pratt”, “wilcox”, “zsplit”}, optional
-    """
-    A_postim = np.mean(A_postim, axis=-1)
-    A_prestim = np.mean(A_prestim, axis=-1)
-    # Iniitialise inflated p values
-    nchans = A_postim.shape[1]
-    pval = [0]*nchans
-    tstat = [0]*nchans
-    # Compute inflated stats given non normal distribution
-    for i in range(0,nchans):
-        tstat[i], pval[i] = spstats.wilcoxon(A_postim[:,i], A_prestim[:,i],
-                                             zero_method=zero_method, alternative=alternative) 
-    # Correct for multiple testing    
-    reject, pval_correct = fdrcorrection(pval, alpha=alpha)
-    w_test = reject, pval_correct, tstat
-    return w_test
-
-
-def multiple_t_test(A_postim, A_prestim, nchans, alpha=0.05):
-    # maybe hfb_db variablenot necessary
-    """t test for visual responsivity"""
-    A_postim = np.mean(A_postim, axis=-1)
-    A_prestim = np.mean(A_prestim, axis=-1)
-    # Initialise inflated p values
-    pval = [0]*nchans
-    tstat = [0]*nchans
-    # Compute inflated stats
-    for i in range(0,nchans):
-        tstat[i], pval[i] = spstats.ttest_ind(A_postim[:,i], A_prestim[:,i], equal_var=False)
-    # Correct for multiple testing    
-    reject, pval_correct = fdrcorrection(pval, alpha=alpha)
-    w_test = reject, pval_correct, tstat
-    return w_test
-
-
-def cohen_d(x, y):
-    """
-    Compute cohen d effect size between 1D array x and y
-    """
-    n1 = np.size(x)
-    n2 = np.size(y)
-    m1 = np.mean(x)
-    m2 = np.mean(y)
-    s1 = np.std(x)
-    s2 = np.std(y)
-    
-    s = (n1 - 1)*(s1**2) + (n2 - 1)*(s2**2)
-    s = s/(n1+n2-2)
-    s= np.sqrt(s)
-    num = m1 - m2
-    
-    cohen = num/s
-    
-    return cohen
-
-
-def compute_visual_responsivity(A_postim, A_prestim):
-    """
-    Compute visual responsivity of a channel from cohen d.
-    """
-    nchan = A_postim.shape[1]
-    visual_responsivity = [0]*nchan
-    
-    for i in range(nchan):
-        x = np.ndarray.flatten(A_postim[:,i,:])
-        y = np.ndarray.flatten(A_prestim[:,i,:])
-        visual_responsivity[i] = cohen_d(x,y)
+    def __init__(self, tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=-0.1,
+               tmax_postim=0.5, alpha=0.05, zero_method='pratt',
+               alternative='two-sided'):
+        self.tmin_prestim = tmin_prestim
+        self.tmax_prestim = tmax_prestim
+        self.tim_postim = tim_postim
+        self.tmax_postim = tmax_postim
+        self.alpha = alpha
+        self.zero_method = zero_method
+        self.alternative = alternative
         
-    return visual_responsivity
-
-
-def visual_chans_stats(reject, visual_responsivity, hfb_db):
-    """
-    Return visual channels with their corresponding responsivity
-    """
-    idx = np.where(reject==True)
-    idx = idx[0]
-    visual_chan = []
-    effect_size = []
+    def detect(self, hfb_db):
+        """
+        Detect visually responsive channels by testing hypothesis of no difference 
+        between prestimulus and postimulus HFB amplitude.
+        ----------
+        Parameters
+        ----------
+        hfb_db: MNE raw object
+                HFB of iEEG in decibels
+        tmin_prestim: float
+                    starting time prestimulus amplitude
+        tmax_preststim: float
+                        stoping time prestimlus amplituds
+        tmin_postim: float
+                     starting time postimuls amplitude
+        tmax_postim: float
+                    stopping time postimulus amplitude
+        alpha: float
+            significance threshold to reject the null
+        From scipy.stats.wilcoxon:
+        alternative: {“two-sided”, “greater”, “less”}, optional
+        zero_method: {“pratt”, “wilcox”, “zsplit”}, optional
+        -------
+        Returns
+        -------
+        visual_chan: list.
+                    List of visually responsive channels
+        effect_size: list
+                     visual responsivity effect size
+        """
+        A_prestim = self.crop_hfb(hfb_db, tmin=self.tmin_prestim, tmax=self.tmax_prestim)
+        A_postim = self.crop_hfb(hfb_db, tmin=self.tmin_postim, tmax=self.tmax_postim)
+        reject, pval_correct, tstat = self.multiple_wilcoxon_test(A_postim, A_prestim)
+        visual_responsivity = self.compute_visual_responsivity(A_postim, A_prestim)
+        visual_chan, effect_size = self.visual_chans_stats(reject, visual_responsivity, hfb_db)
+        return visual_chan, effect_size
     
-    for i in list(idx):
-        if visual_responsivity[i]>0:
-            visual_chan.append(hfb_db.info['ch_names'][i])
-            effect_size.append(visual_responsivity[i])
-        else:
-            continue
-    return visual_chan, effect_size
+    
+    def crop_hfb(self, hfb_db, tmin=-0.5, tmax=-0.05):
+        """
+        crop hfb between over [tmin tmax].
+        Input : MNE raw object
+        Return: array
+        """
+        A = hfb_db.copy().crop(tmin=tmin, tmax=tmax).get_data()
+        return A
+    
+    
+    def crop_stim_hfb(self, hfb_db, stim_id, tmin=-0.5, tmax=-0.05):
+        """
+        crop condition specific hfb between [tmin tmax].
+        Input : MNE raw object
+        Return: array
+        """
+        A = hfb_db[stim_id].copy().crop(tmin=tmin, tmax=tmax).get_data()
+        return A
+    
+    
+    def multiple_perm_test(self, A_postim, A_prestim, nchans):
+        A_postim = np.mean(A_postim, axis=-1)
+        A_prestim = np.mean(A_prestim, axis=-1)
+        # Initialise inflated p values
+        pval = [0]*nchans
+        tstat = [0]*nchans
+        # Compute inflated stats
+        for i in range(0,nchans):
+            tstat[i], pval[i] = nnstats.permtest_rel(A_postim[:,i], A_prestim[:,i])  
+        # Correct for multiple testing    
+        reject, pval_correct = fdrcorrection(pval, alpha=self.alpha)
+        return reject
+    
+    
+    def multiple_wilcoxon_test(self, A_postim, A_prestim):
+        """
+        Wilcoxon test hypothesis of no difference between prestimulus and postimulus amplitude
+        Correct for multilple hypothesis test.
+        ----------
+        Parameters
+        ----------
+        A_postim: (...,times) array
+                Postimulus amplitude
+        A_prestim: (...,times) array
+                    Presimulus amplitude
+        alpha: float
+            significance threshold to reject the null
+        From scipy.stats.wilcoxon:
+        alternative: {“two-sided”, “greater”, “less”}, optional
+        zero_method: {“pratt”, “wilcox”, “zsplit”}, optional
+        """
+        A_postim = np.mean(A_postim, axis=-1)
+        A_prestim = np.mean(A_prestim, axis=-1)
+        # Iniitialise inflated p values
+        nchans = A_postim.shape[1]
+        pval = [0]*nchans
+        tstat = [0]*nchans
+        # Compute inflated stats given non normal distribution
+        for i in range(0,nchans):
+            tstat[i], pval[i] = spstats.wilcoxon(A_postim[:,i], A_prestim[:,i],
+                                                 zero_method=self.zero_method, 
+                                                 alternative=self.alternative) 
+        # Correct for multiple testing    
+        reject, pval_correct = fdrcorrection(pval, alpha=self.alpha)
+        w_test = reject, pval_correct, tstat
+        return w_test
+    
+    
+    def multiple_t_test(self, A_postim, A_prestim, nchans):
+        # maybe hfb_db variablenot necessary
+        """t test for visual responsivity"""
+        A_postim = np.mean(A_postim, axis=-1)
+        A_prestim = np.mean(A_prestim, axis=-1)
+        # Initialise inflated p values
+        pval = [0]*nchans
+        tstat = [0]*nchans
+        # Compute inflated stats
+        for i in range(0,nchans):
+            tstat[i], pval[i] = spstats.ttest_ind(A_postim[:,i], A_prestim[:,i], equal_var=False)
+        # Correct for multiple testing    
+        reject, pval_correct = fdrcorrection(pval, alpha=alpha)
+        w_test = reject, pval_correct, tstat
+        return w_test
+    
+    
+    def cohen_d(x, y):
+        """
+        Compute cohen d effect size between 1D array x and y
+        """
+        n1 = np.size(x)
+        n2 = np.size(y)
+        m1 = np.mean(x)
+        m2 = np.mean(y)
+        s1 = np.std(x)
+        s2 = np.std(y)
+        
+        s = (n1 - 1)*(s1**2) + (n2 - 1)*(s2**2)
+        s = s/(n1+n2-2)
+        s= np.sqrt(s)
+        num = m1 - m2
+        
+        cohen = num/s
+        
+        return cohen
+    
+    
+    def compute_visual_responsivity(self, A_postim, A_prestim):
+        """
+        Compute visual responsivity of a channel from cohen d.
+        """
+        nchan = A_postim.shape[1]
+        visual_responsivity = [0]*nchan
+        
+        for i in range(nchan):
+            x = np.ndarray.flatten(A_postim[:,i,:])
+            y = np.ndarray.flatten(A_prestim[:,i,:])
+            visual_responsivity[i] = cohen_d(x,y)
+            
+        return visual_responsivity
+    
+    
+    def visual_chans_stats(self, reject, visual_responsivity, hfb_db):
+        """
+        Return visual channels with their corresponding responsivity
+        """
+        idx = np.where(reject==True)
+        idx = idx[0]
+        visual_chan = []
+        effect_size = []
+        
+        for i in list(idx):
+            if visual_responsivity[i]>0:
+                visual_chan.append(hfb_db.info['ch_names'][i])
+                effect_size.append(visual_responsivity[i])
+            else:
+                continue
+        return visual_chan, effect_size
 
 #%% Compute visual channels latency response
 
@@ -702,71 +726,80 @@ def compute_latency(visual_hfb, image_id, visual_channels, alpha = 0.05):
     return latency_response
 
 # %% Classify channels into Face, Place and retinotopic channels
-
-def classify_Face_Place(visual_hfb, face_id, place_id, visual_channels, 
-                        tmin_postim=0.2, tmax_postim=0.5, alpha=0.05, zero_method='pratt'):
-    """
-    Classify Face and place selective sites using one sided signed ranke wilcoxon
-    test. 
-    """
-    nchan = len(visual_channels)
-    group = ['O']*nchan
-    category_selectivity = [0]*len(group)
-    A_face = crop_stim_hfb(visual_hfb, face_id, tmin=tmin_postim, tmax=tmax_postim)
-    A_place = crop_stim_hfb(visual_hfb, place_id, tmin=tmax_postim, tmax=tmax_postim)
     
-    n_visuals = len(visual_hfb.info['ch_names'])
-    w_test_plus = multiple_wilcoxon_test(A_face, A_place, zero_method=zero_method,
-                                         alternative = 'greater', alpha=alpha)
-    reject_plus = w_test_plus[0]
+class Visual_function(Visual_response):
+    """
+    Classify visual channels into Face, Place and retinotopic channels
+    """
+    def __init__(self, tmin_postim=0.2, tmax_postim=0.5, alpha=0.05, 
+                 zero_method='pratt'):
+        super().__init__(tmin_postim=0.2, tmax_postim=0.5, alpha=0.05, 
+                 zero_method='pratt')
 
+    def face_place(self, visual_hfb, face_id, place_id, visual_channels):
+        """
+        Classify Face and place selective sites using one sided signed ranke wilcoxon
+        test. 
+        """
+        nchan = len(visual_channels)
+        group = ['O']*nchan
+        category_selectivity = [0]*len(group)
+        A_face = crop_stim_hfb(visual_hfb, face_id, tmin=self.tmin_postim, tmax=self.tmax_postim)
+        A_place = crop_stim_hfb(visual_hfb, place_id, tmin=self.tmax_postim, tmax=self.tmax_postim)
+        
+        n_visuals = len(visual_hfb.info['ch_names'])
+        w_test_plus = multiple_wilcoxon_test(A_face, A_place, zero_method=self.zero_method,
+                                             alternative = 'greater', alpha=self.alpha)
+        reject_plus = w_test_plus[0]
     
-    w_test_minus = multiple_wilcoxon_test(A_face, A_place,
-                                          zero_method=zero_method, alternative = 'less',alpha=alpha)
-    reject_minus = w_test_minus[0]
-
+        
+        w_test_minus = multiple_wilcoxon_test(A_face, A_place,
+                                              zero_method=self.zero_method,
+                                              alternative = 'less',alpha=self.alpha)
+        reject_minus = w_test_minus[0]
     
-    # Significant electrodes located outside of V1 and V2 are Face or Place responsive
-    for idx, channel in enumerate(visual_channels):
-        A_face = crop_stim_hfb(visual_hfb, face_id, tmin=tmin_postim, tmax=tmax_postim)
-        A_place = crop_stim_hfb(visual_hfb, place_id, tmin=tmax_postim, tmax=tmax_postim)
-        A_face = np.ndarray.flatten(A_face[:,idx,:])
-        A_place = np.ndarray.flatten(A_place[:,idx,:])
-        if reject_plus[idx]==False and reject_minus[idx]==False :
-            continue
-        else:
-            if reject_plus[idx]==True :
-               group[idx] = 'F'
-               category_selectivity[idx] = cohen_d(A_face, A_place)
-            elif reject_minus[idx]==True :
-               group[idx] = 'P'
-               category_selectivity[idx] = cohen_d(A_place, A_face)
-    return group, category_selectivity
-
-
-def classify_retinotopic(visual_channels, group, dfelec):
-    """
-    Return retinotopic from V1 and V2 from Brodman atlas.
-    """
-    nchan = len(group)
-    bipolar_visual = [visual_channels[i].split('-') for i in range(nchan)]
-    for i in range(nchan):
-        brodman = (dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][0]].to_string(index=False), 
-                   dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][1]].to_string(index=False))
-        if ' V1' in brodman or ' V2' in brodman and group[i]!='F' and  group[i] !='P':
-            group[i]='R'
-    return group
-
-def extract_stim_id(event_id, cat = 'Face'):
-    """
-    Returns event id of specific stimuli category (Face or Place)
-    """
-    p = re.compile(cat)
-    stim_id = []
-    for key in event_id.keys():
-        if p.match(key):
-            stim_id.append(key)
-    return stim_id
+        
+        # Significant electrodes located outside of V1 and V2 are Face or Place responsive
+        for idx, channel in enumerate(visual_channels):
+            A_face = crop_stim_hfb(visual_hfb, face_id, tmin=self.tmin_postim, tmax=self.tmax_postim)
+            A_place = crop_stim_hfb(visual_hfb, place_id, tmin=self.tmax_postim, tmax=self.tmax_postim)
+            A_face = np.ndarray.flatten(A_face[:,idx,:])
+            A_place = np.ndarray.flatten(A_place[:,idx,:])
+            if reject_plus[idx]==False and reject_minus[idx]==False :
+                continue
+            else:
+                if reject_plus[idx]==True :
+                   group[idx] = 'F'
+                   category_selectivity[idx] = cohen_d(A_face, A_place)
+                elif reject_minus[idx]==True :
+                   group[idx] = 'P'
+                   category_selectivity[idx] = cohen_d(A_place, A_face)
+        return group, category_selectivity
+    
+    
+    def retinotopic(self, visual_channels, group, dfelec):
+        """
+        Return retinotopic site from V1 and V2 given Brodman atlas.
+        """
+        nchan = len(group)
+        bipolar_visual = [visual_channels[i].split('-') for i in range(nchan)]
+        for i in range(nchan):
+            brodman = (dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][0]].to_string(index=False), 
+                       dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][1]].to_string(index=False))
+            if ' V1' in brodman or ' V2' in brodman and group[i]!='F' and  group[i] !='P':
+                group[i]='R'
+        return group
+    
+    def extract_stim_id(event_id, cat = 'Face'):
+        """
+        Returns event id of specific stimuli category (Face or Place)
+        """
+        p = re.compile(cat)
+        stim_id = []
+        for key in event_id.keys():
+            if p.match(key):
+                stim_id.append(key)
+        return stim_id
 
 #%%
 
@@ -787,62 +820,62 @@ def compute_peak_time(hfb, visual_chan, tmin=0.05, tmax=1.75):
         peak_sample = peak_sample[0][0]
         peak_time[i] = time[peak_sample]
     return peak_time
-#%%
+#%% Return all relevant informaiton for visually repsonsive populations
 
-def hfb_to_visual_populations(hfb_db, dfelec,
-                       tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=0.1,
-                       tmax_postim=0.5, alpha= 0.05, zero_method='pratt', alternative='two-sided'):
-    """
-    Create dictionary containing relevant information on visually responsive channels
-    """
-    # Extract and normalise hfb
-    event_id = hfb_db.event_id
-    face_id = extract_stim_id(event_id, cat = 'Face')
-    place_id = extract_stim_id(event_id, cat='Place')
-    image_id = face_id+place_id
-    
-    # Detect visual channels
-    visual_chan, visual_responsivity = detect_visual_chan(hfb_db, tmin_prestim=tmin_prestim, 
-                                              tmax_prestim=-tmax_prestim
-                                              ,tmin_postim=tmin_postim,
-                       tmax_postim=tmax_postim, alpha=alpha, zero_method=zero_method, 
-                       alternative=alternative)
-    
-    visual_hfb = hfb_db.copy().pick_channels(visual_chan)
-    
-    # Compute latency response
-    latency_response = compute_latency(visual_hfb, image_id, visual_chan)
-    
-    # Classify Face and Place populations
-    group, category_selectivity = classify_Face_Place(visual_hfb, face_id, place_id, visual_chan, 
-                        tmin_postim=tmin_postim, tmax_postim=tmax_postim, alpha=alpha,
-                        zero_method=zero_method)
-    # Classify retinotopic populations
-    group = classify_retinotopic(visual_chan, group, dfelec)
-    
-    # Compute peak time
-    
-    peak_time = compute_peak_time(hfb_db, visual_chan, tmin=0.05, tmax=1.75)
-    
-    # Create visual_populations dictionary 
-    visual_populations = {'chan_name': [], 'group': [], 'latency': [], 
-                          'brodman': [], 'DK': [], 'X':[], 'Y':[], 'Z':[]}
-    
-    visual_populations['chan_name'] = visual_chan
-    visual_populations['group'] = group
-    visual_populations['latency'] = latency_response
-    visual_populations['visual_responsivity'] = visual_responsivity
-    visual_populations['category_selectivity'] = category_selectivity
-    visual_populations['peak_time'] = peak_time
-    for chan in visual_chan: 
-        chan_name_split = chan.split('-')[0]
-        visual_populations['brodman'].extend(dfelec['Brodman'].loc[dfelec['electrode_name']==chan_name_split])
-        visual_populations['DK'].extend(dfelec['ROI_DK'].loc[dfelec['electrode_name']==chan_name_split])
-        visual_populations['X'].extend(dfelec['X'].loc[dfelec['electrode_name']==chan_name_split])
-        visual_populations['Y'].extend(dfelec['Y'].loc[dfelec['electrode_name']==chan_name_split])
-        visual_populations['Z'].extend(dfelec['Z'].loc[dfelec['electrode_name']==chan_name_split])
+class Visual_sites(Visual_function):
+     def __init__(self, tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=0.1,
+               tmax_postim=0.5, alpha=0.05, zero_method='pratt',
+               alternative='two-sided'):
+        super().__init__(tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=0.1,
+               tmax_postim=0.5, alpha=0.05, zero_method='pratt',
+               alternative='two-sided')
+
+    def hfb_to_visual_populations(self, hfb_db, dfelec):
+        """
+        Create dictionary containing relevant information on visually responsive channels
+        """
+        # Extract and normalise hfb
+        event_id = hfb_db.event_id
+        face_id = extract_stim_id(event_id, cat = 'Face')
+        place_id = extract_stim_id(event_id, cat='Place')
+        image_id = face_id+place_id
         
-    return visual_populations
+        # Detect visual channels
+        visual_chan, visual_responsivity = self.detect(hfb_db)
+        
+        visual_hfb = hfb_db.copy().pick_channels(visual_chan)
+        
+        # Compute latency response
+        latency_response = compute_latency(visual_hfb, image_id, visual_chan)
+        
+        # Classify Face and Place populations
+        group, category_selectivity = self.face_place(visual_hfb, face_id, place_id, visual_chan)
+        # Classify retinotopic populations
+        group = self.retinotopic(visual_chan, group, dfelec)
+        
+        # Compute peak time
+        
+        peak_time = compute_peak_time(hfb_db, visual_chan, tmin=0.05, tmax=1.75)
+        
+        # Create visual_populations dictionary 
+        visual_populations = {'chan_name': [], 'group': [], 'latency': [], 
+                              'brodman': [], 'DK': [], 'X':[], 'Y':[], 'Z':[]}
+        
+        visual_populations['chan_name'] = visual_chan
+        visual_populations['group'] = group
+        visual_populations['latency'] = latency_response
+        visual_populations['visual_responsivity'] = visual_responsivity
+        visual_populations['category_selectivity'] = category_selectivity
+        visual_populations['peak_time'] = peak_time
+        for chan in visual_chan: 
+            chan_name_split = chan.split('-')[0]
+            visual_populations['brodman'].extend(dfelec['Brodman'].loc[dfelec['electrode_name']==chan_name_split])
+            visual_populations['DK'].extend(dfelec['ROI_DK'].loc[dfelec['electrode_name']==chan_name_split])
+            visual_populations['X'].extend(dfelec['X'].loc[dfelec['electrode_name']==chan_name_split])
+            visual_populations['Y'].extend(dfelec['Y'].loc[dfelec['electrode_name']==chan_name_split])
+            visual_populations['Z'].extend(dfelec['Z'].loc[dfelec['electrode_name']==chan_name_split])
+            
+        return visual_populations
 
 
 # %% Create category specific time series as input for mvgc toolbox

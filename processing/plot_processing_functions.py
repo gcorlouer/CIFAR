@@ -30,15 +30,30 @@ ichan = 6
 figname = 'HFB_envelope_extraction.jpg'
 figpath = Path.home().joinpath('projects','CIFAR','figures', figname)
 
-#%% Load data
+#%% Plot HFB extraction
 
-subject = cf.Subject()
+subject = hf.Subject()
 fpath = subject.processing_stage_path(proc = proc)
 fpath = fpath.joinpath(fname)
 raw = mne.io.read_raw_fif(fpath, preload=True)
 raw = raw.crop(tmin=tmin, tmax=tmax)
 times = raw.times
+raw_filt = raw.copy().filter(l_freq=60, h_freq=80,
+                                 phase=phase, filter_length=filter_length,
+                                 l_trans_bandwidth= l_trans_bandwidth, 
+                                 h_trans_bandwidth= h_trans_bandwidth,
+                                     fir_window='blackman')
+lfp_filt = raw_filt.copy().get_data()*1e6
+hfb = hf.Hfb()
+hfb = hfb.extract_envelope(raw)
+hfb = hfb*1e6
 
-HFB = hf.extract_hfb(raw, l_freq=l_freq, nband=nband, band_size=band_size,
-                l_trans_bandwidth= l_trans_bandwidth,h_trans_bandwidth= h_trans_bandwidth,
-                filter_length=filter_length, phase=phase)
+
+matplotlib.rcParams.update({'font.size': 18})
+sns.set()
+
+plt.plot(times, hfb[ichan, :], label='HFB amplitude')
+plt.plot(times, lfp_filt[ichan, :], label='LFP')
+
+#%%
+
