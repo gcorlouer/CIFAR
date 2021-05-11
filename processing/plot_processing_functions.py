@@ -12,37 +12,27 @@ import mne
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 from pathlib import Path, PurePath
+from test_config import args
 
+ichan=6
 
-sub_id = 'DiAs'
-proc = 'preproc'
-fname = sub_id + '_BP_montage_preprocessed_raw.fif'
-tmin = 100
-tmax = 102
-l_freq = 60
-band_size=20.0
-l_trans_bandwidth= 10.0
-h_trans_bandwidth= 10.0
-filter_length='auto'
-phase='minimum'
-ichan = 6
-figname = 'HFB_envelope_extraction.jpg'
-figpath = Path.home().joinpath('projects','CIFAR','figures', figname)
-
-#%% Plot HFB extraction
+#%% Load data
 
 subject = hf.Subject()
-fpath = subject.processing_stage_path(proc = proc)
+fpath = subject.processing_stage_path(proc = args.proc)
+fname = args.sub_id + args.stage
 fpath = fpath.joinpath(fname)
 raw = mne.io.read_raw_fif(fpath, preload=True)
-raw = raw.crop(tmin=tmin, tmax=tmax)
+#%%
+raw = raw.crop(tmin=100, tmax=102)
 times = raw.times
-raw_filt = raw.copy().filter(l_freq=60, h_freq=80,
-                                 phase=phase, filter_length=filter_length,
-                                 l_trans_bandwidth= l_trans_bandwidth, 
-                                 h_trans_bandwidth= h_trans_bandwidth,
-                                     fir_window='blackman')
+raw_filt = raw.copy().filter(l_freq=args.l_freq, h_freq=80,
+                                 phase=args.phase, filter_length=args.filter_length,
+                                 l_trans_bandwidth= args.l_trans_bandwidth, 
+                                 h_trans_bandwidth= args.h_trans_bandwidth,
+                                     fir_window=args.fir_window)
 lfp_filt = raw_filt.copy().get_data()*1e6
 hfb = hf.Hfb()
 hfb = hfb.extract_envelope(raw)
@@ -55,5 +45,5 @@ sns.set()
 plt.plot(times, hfb[ichan, :], label='HFB amplitude')
 plt.plot(times, lfp_filt[ichan, :], label='LFP')
 
-#%%
+
 

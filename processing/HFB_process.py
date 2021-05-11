@@ -755,7 +755,7 @@ class Visual_function(Visual_response):
         
         w_test_minus = multiple_wilcoxon_test(A_face, A_place,
                                               zero_method=self.zero_method,
-                                              alternative = 'less',alpha=self.alpha)
+                                              alternative = 'less', alpha=self.alpha)
         reject_minus = w_test_minus[0]
     
         
@@ -823,6 +823,7 @@ def compute_peak_time(hfb, visual_chan, tmin=0.05, tmax=1.75):
 #%% Return all relevant informaiton for visually repsonsive populations
 
 class Visual_sites(Visual_function):
+    
      def __init__(self, tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=0.1,
                tmax_postim=0.5, alpha=0.05, zero_method='pratt',
                alternative='two-sided'):
@@ -830,7 +831,7 @@ class Visual_sites(Visual_function):
                tmax_postim=0.5, alpha=0.05, zero_method='pratt',
                alternative='two-sided')
 
-    def hfb_to_visual_populations(self, hfb_db, dfelec):
+     def hfb_to_visual_populations(self, hfb_db, dfelec):
         """
         Create dictionary containing relevant information on visually responsive channels
         """
