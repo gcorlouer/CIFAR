@@ -169,7 +169,7 @@ class Subject:
         Return list of DK ROI corresponding to list of picked channels 
         """
         df_electrodes_info = self.df_electrodes_info()
-        ROI_DK = picks2DK(df_electrodes_info, picks)
+        ROI_DK = self.picks2DK(df_electrodes_info, picks)
         return ROI_DK
 
 #%% Return list of ROI given list of channels
@@ -179,7 +179,7 @@ class Subject:
         Return list of Brodman area corresponding to list of picked channels
         """
         df_electrodes_info = self.df_electrodes_info()
-        ROI_brodman = picks2brodman(df_electrodes_info, picks)
+        ROI_brodman = self.picks2brodman(df_electrodes_info, picks)
         return ROI_brodman
 
     def brodman(self, chan_name):
@@ -187,10 +187,10 @@ class Subject:
         Return Brodman area of a given channel
         """
         df_electrodes_info = self.df_electrodes_info()
-        brodman = chan2brodman(df_electrodes_info, chan_name)
+        brodman = self.chan2brodman(df_electrodes_info, chan_name)
         return brodman
 
-    def chan2brodman(df_electrodes_info, electrode_name):
+    def chan2brodman(self, df_electrodes_info, electrode_name):
         """
         Given channel name return corresponding brodman area
         """
@@ -202,7 +202,7 @@ class Subject:
             brodman = 'unknown'
         return brodman
 
-    def chan2DK(df_electrodes_info, electrode_name):
+    def chan2DK(self, df_electrodes_info, electrode_name):
         """
         Given channel name, return corresponding DK ROI
         """
@@ -214,23 +214,23 @@ class Subject:
             DK = 'unknown'
         return DK
     
-    def picks2brodman(df_electrodes_info, picks):
+    def picks2brodman(self, df_electrodes_info, picks):
         """
         Given list of channels return corresponding list of brodman area
         """
         ROI_brodman = []
         for chan in picks:
-            brodman = chan2brodman(df_electrodes_info, chan)
+            brodman = self.chan2brodman(df_electrodes_info, chan)
             ROI_brodman.append(brodman)
         return ROI_brodman
     
-    def picks2DK(df_electrodes_info, picks):
+    def picks2DK(self, df_electrodes_info, picks):
         """
         Given list of channels return corresponding list of DK area
         """
         ROI_DK = []
         for chan in picks:
-            DK = chan2DK(df_electrodes_info, chan)
+            DK = self.chan2DK(df_electrodes_info, chan)
             ROI_DK.append(DK)
         return ROI_DK
 
@@ -479,7 +479,7 @@ class Hfb_db(Hfb):
 
 #%% Detect visually responsive populations
 
-class Visual_response:
+class Detect_visual_site:
     """
     Detect visually responsive channels
     """
@@ -488,7 +488,7 @@ class Visual_response:
                alternative='two-sided'):
         self.tmin_prestim = tmin_prestim
         self.tmax_prestim = tmax_prestim
-        self.tim_postim = tim_postim
+        self.tmin_postim = tmin_postim
         self.tmax_postim = tmax_postim
         self.alpha = alpha
         self.zero_method = zero_method
@@ -612,12 +612,12 @@ class Visual_response:
         for i in range(0,nchans):
             tstat[i], pval[i] = spstats.ttest_ind(A_postim[:,i], A_prestim[:,i], equal_var=False)
         # Correct for multiple testing    
-        reject, pval_correct = fdrcorrection(pval, alpha=alpha)
+        reject, pval_correct = fdrcorrection(pval, alpha=self.alpha)
         w_test = reject, pval_correct, tstat
         return w_test
     
     
-    def cohen_d(x, y):
+    def cohen_d(self, x, y):
         """
         Compute cohen d effect size between 1D array x and y
         """
@@ -648,7 +648,7 @@ class Visual_response:
         for i in range(nchan):
             x = np.ndarray.flatten(A_postim[:,i,:])
             y = np.ndarray.flatten(A_prestim[:,i,:])
-            visual_responsivity[i] = cohen_d(x,y)
+            visual_responsivity[i] = self.cohen_d(x,y)
             
         return visual_responsivity
     
@@ -672,62 +672,64 @@ class Visual_response:
 
 #%% Compute visual channels latency response
 
-def pval_series(visual_hfb, image_id, visual_channels, alpha = 0.05):
-    """
-    Return pvalue of postimulus visual responsivity along observations
-    """
-    nchan = len(visual_channels)
-    A_postim = crop_stim_hfb(visual_hfb, image_id, tmin=0, tmax=1.5)
-    A_prestim = crop_stim_hfb(visual_hfb, image_id, tmin=-0.4, tmax=-0.1)
-    A_baseline = np.mean(A_prestim, axis=-1)
-    nobs = A_postim.shape[2]
-    
-    pval = [0]*nobs
-    tstat = [0]*nobs
-    
-    reject = np.zeros((nchan, nobs))
-    pval_correct = np.zeros((nchan, nobs))
-    
-    for i in range(0, nchan):
-        for t in range(0,nobs):
-            tstat[t] = spstats.wilcoxon(A_postim[:,i,t], A_baseline[:,i], zero_method='pratt')
-            pval[t] = tstat[t][1]
-            
-        reject[i,:], pval_correct[i, :] = fdrcorrection(pval, alpha=alpha) # correct for multiple hypotheses
+    def pval_series(self, visual_hfb, image_id, visual_channels):
+        """
+        Return pvalue of postimulus visual responsivity along observations
+        """
+        nchan = len(visual_channels)
+        A_postim = self.crop_stim_hfb(visual_hfb, image_id, tmin=0, tmax=1.5)
+        A_prestim = self.crop_stim_hfb(visual_hfb, image_id, tmin=-0.4, tmax=-0.1)
+        A_baseline = np.mean(A_prestim, axis=-1)
+        nobs = A_postim.shape[2]
         
-    return reject, pval_correct
-
-
-def compute_latency(visual_hfb, image_id, visual_channels, alpha = 0.05):
-    """
-    Compute latency response of visual channels"
-    """
-    A_postim = crop_stim_hfb(visual_hfb, image_id, tmin=0, tmax=1.5)
-    A_prestim = crop_stim_hfb(visual_hfb, image_id, tmin=-0.4, tmax=0)
-    A_baseline = np.mean(A_prestim, axis=-1) #No
-    
-    pval = [0]*A_postim.shape[2]
-    tstat = [0]*A_postim.shape[2]
-    latency_response = [0]*len(visual_channels)
-    
-    for i in range(0, len(visual_channels)):
-        for t in range(0,np.size(A_postim,2)):
-            tstat[t] = spstats.wilcoxon(A_postim[:,i,t], A_baseline[:,i], zero_method='pratt')
-            pval[t] = tstat[t][1]
-            
-        reject, pval_correct = fdrcorrection(pval, alpha=alpha) # correct for multiple hypotheses
+        pval = [0]*nobs
+        tstat = [0]*nobs
         
-        for t in range(0,np.size(A_postim,2)):
-            if np.all(reject[t:t+50])==True :
-                latency_response[i]=t/500*1e3
-                break 
-            else:
-                continue
-    return latency_response
+        reject = np.zeros((nchan, nobs))
+        pval_correct = np.zeros((nchan, nobs))
+        
+        for i in range(0, nchan):
+            for t in range(0,nobs):
+                tstat[t] = spstats.wilcoxon(A_postim[:,i,t], A_baseline[:,i], 
+                                            zero_method=self.zero_method)
+                pval[t] = tstat[t][1]
+                
+            reject[i,:], pval_correct[i, :] = fdrcorrection(pval, alpha=self.alpha) # correct for multiple hypotheses
+            
+        return reject, pval_correct
+    
+    
+    def compute_latency(self, visual_hfb, image_id, visual_channels):
+        """
+        Compute latency response of visual channels"
+        """
+        A_postim = self.crop_stim_hfb(visual_hfb, image_id, tmin=0, tmax=1.5)
+        A_prestim = self.crop_stim_hfb(visual_hfb, image_id, tmin=-0.4, tmax=0)
+        A_baseline = np.mean(A_prestim, axis=-1) #No
+        
+        pval = [0]*A_postim.shape[2]
+        tstat = [0]*A_postim.shape[2]
+        latency_response = [0]*len(visual_channels)
+        
+        for i in range(0, len(visual_channels)):
+            for t in range(0,np.size(A_postim,2)):
+                tstat[t] = spstats.wilcoxon(A_postim[:,i,t], A_baseline[:,i],
+                                            zero_method=self.zero_method)
+                pval[t] = tstat[t][1]
+                
+            reject, pval_correct = fdrcorrection(pval, alpha=self.alpha) # correct for multiple hypotheses
+            
+            for t in range(0,np.size(A_postim,2)):
+                if np.all(reject[t:t+50])==True :
+                    latency_response[i]=t/500*1e3
+                    break 
+                else:
+                    continue
+        return latency_response
 
 # %% Classify channels into Face, Place and retinotopic channels
     
-class Visual_function(Visual_response):
+class Classify_visual_site(Detect_visual_site):
     """
     Classify visual channels into Face, Place and retinotopic channels
     """
@@ -736,109 +738,14 @@ class Visual_function(Visual_response):
         super().__init__(tmin_postim=0.2, tmax_postim=0.5, alpha=0.05, 
                  zero_method='pratt')
 
-    def face_place(self, visual_hfb, face_id, place_id, visual_channels):
+    def hfb_to_visual_populations(self, hfb_db, dfelec):
         """
-        Classify Face and place selective sites using one sided signed ranke wilcoxon
-        test. 
-        """
-        nchan = len(visual_channels)
-        group = ['O']*nchan
-        category_selectivity = [0]*len(group)
-        A_face = crop_stim_hfb(visual_hfb, face_id, tmin=self.tmin_postim, tmax=self.tmax_postim)
-        A_place = crop_stim_hfb(visual_hfb, place_id, tmin=self.tmax_postim, tmax=self.tmax_postim)
-        
-        n_visuals = len(visual_hfb.info['ch_names'])
-        w_test_plus = multiple_wilcoxon_test(A_face, A_place, zero_method=self.zero_method,
-                                             alternative = 'greater', alpha=self.alpha)
-        reject_plus = w_test_plus[0]
-    
-        
-        w_test_minus = multiple_wilcoxon_test(A_face, A_place,
-                                              zero_method=self.zero_method,
-                                              alternative = 'less', alpha=self.alpha)
-        reject_minus = w_test_minus[0]
-    
-        
-        # Significant electrodes located outside of V1 and V2 are Face or Place responsive
-        for idx, channel in enumerate(visual_channels):
-            A_face = crop_stim_hfb(visual_hfb, face_id, tmin=self.tmin_postim, tmax=self.tmax_postim)
-            A_place = crop_stim_hfb(visual_hfb, place_id, tmin=self.tmax_postim, tmax=self.tmax_postim)
-            A_face = np.ndarray.flatten(A_face[:,idx,:])
-            A_place = np.ndarray.flatten(A_place[:,idx,:])
-            if reject_plus[idx]==False and reject_minus[idx]==False :
-                continue
-            else:
-                if reject_plus[idx]==True :
-                   group[idx] = 'F'
-                   category_selectivity[idx] = cohen_d(A_face, A_place)
-                elif reject_minus[idx]==True :
-                   group[idx] = 'P'
-                   category_selectivity[idx] = cohen_d(A_place, A_face)
-        return group, category_selectivity
-    
-    
-    def retinotopic(self, visual_channels, group, dfelec):
-        """
-        Return retinotopic site from V1 and V2 given Brodman atlas.
-        """
-        nchan = len(group)
-        bipolar_visual = [visual_channels[i].split('-') for i in range(nchan)]
-        for i in range(nchan):
-            brodman = (dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][0]].to_string(index=False), 
-                       dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][1]].to_string(index=False))
-            if ' V1' in brodman or ' V2' in brodman and group[i]!='F' and  group[i] !='P':
-                group[i]='R'
-        return group
-    
-    def extract_stim_id(event_id, cat = 'Face'):
-        """
-        Returns event id of specific stimuli category (Face or Place)
-        """
-        p = re.compile(cat)
-        stim_id = []
-        for key in event_id.keys():
-            if p.match(key):
-                stim_id.append(key)
-        return stim_id
-
-#%%
-
-def compute_peak_time(hfb, visual_chan, tmin=0.05, tmax=1.75):
-    """
-    Return time of peak amplitude for each visual channel
-    """
-    nchan = len(visual_chan)
-    peak_time = [0] * nchan
-    hfb = hfb.copy().pick_channels(visual_chan)
-    hfb = hfb.copy().crop(tmin=tmin, tmax = tmax)
-    time = hfb.times
-    A = hfb.copy().get_data()
-    evok = np.mean(A,axis=0)
-    for i in range(nchan):
-        peak = np.amax(evok[i,:])
-        peak_sample = np.where(evok[i,:]==peak)
-        peak_sample = peak_sample[0][0]
-        peak_time[i] = time[peak_sample]
-    return peak_time
-#%% Return all relevant informaiton for visually repsonsive populations
-
-class Visual_sites(Visual_function):
-    
-     def __init__(self, tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=0.1,
-               tmax_postim=0.5, alpha=0.05, zero_method='pratt',
-               alternative='two-sided'):
-        super().__init__(tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=0.1,
-               tmax_postim=0.5, alpha=0.05, zero_method='pratt',
-               alternative='two-sided')
-
-     def hfb_to_visual_populations(self, hfb_db, dfelec):
-        """
-        Create dictionary containing relevant information on visually responsive channels
+        Create dictionary containing all relevant information on visually responsive channels
         """
         # Extract and normalise hfb
         event_id = hfb_db.event_id
-        face_id = extract_stim_id(event_id, cat = 'Face')
-        place_id = extract_stim_id(event_id, cat='Place')
+        face_id = self.extract_stim_id(event_id, cat = 'Face')
+        place_id = self.extract_stim_id(event_id, cat='Place')
         image_id = face_id+place_id
         
         # Detect visual channels
@@ -847,7 +754,7 @@ class Visual_sites(Visual_function):
         visual_hfb = hfb_db.copy().pick_channels(visual_chan)
         
         # Compute latency response
-        latency_response = compute_latency(visual_hfb, image_id, visual_chan)
+        latency_response = self.compute_latency(visual_hfb, image_id, visual_chan)
         
         # Classify Face and Place populations
         group, category_selectivity = self.face_place(visual_hfb, face_id, place_id, visual_chan)
@@ -856,7 +763,7 @@ class Visual_sites(Visual_function):
         
         # Compute peak time
         
-        peak_time = compute_peak_time(hfb_db, visual_chan, tmin=0.05, tmax=1.75)
+        peak_time = self.compute_peak_time(self, hfb_db, visual_chan, tmin=0.05, tmax=1.75)
         
         # Create visual_populations dictionary 
         visual_populations = {'chan_name': [], 'group': [], 'latency': [], 
@@ -878,6 +785,88 @@ class Visual_sites(Visual_function):
             
         return visual_populations
 
+    def face_place(self, visual_hfb, face_id, place_id, visual_channels):
+        """
+        Classify Face and place selective sites using one sided signed ranke wilcoxon
+        test. 
+        """
+        nchan = len(visual_channels)
+        group = ['O']*nchan
+        category_selectivity = [0]*len(group)
+        A_face = self.crop_stim_hfb(visual_hfb, face_id, tmin=self.tmin_postim, tmax=self.tmax_postim)
+        A_place = self.crop_stim_hfb(visual_hfb, place_id, tmin=self.tmax_postim, tmax=self.tmax_postim)
+        
+        n_visuals = len(visual_hfb.info['ch_names'])
+        w_test_plus = self.multiple_wilcoxon_test(A_face, A_place, zero_method=self.zero_method,
+                                             alternative = 'greater', alpha=self.alpha)
+        reject_plus = w_test_plus[0]
+    
+        
+        w_test_minus = self.multiple_wilcoxon_test(A_face, A_place,
+                                              zero_method=self.zero_method,
+                                              alternative = 'less', alpha=self.alpha)
+        reject_minus = w_test_minus[0]
+    
+        
+        # Significant electrodes located outside of V1 and V2 are Face or Place responsive
+        for idx, channel in enumerate(visual_channels):
+            A_face = self.crop_stim_hfb(visual_hfb, face_id, tmin=self.tmin_postim, tmax=self.tmax_postim)
+            A_place = self.crop_stim_hfb(visual_hfb, place_id, tmin=self.tmax_postim, tmax=self.tmax_postim)
+            A_face = np.ndarray.flatten(A_face[:,idx,:])
+            A_place = np.ndarray.flatten(A_place[:,idx,:])
+            if reject_plus[idx]==False and reject_minus[idx]==False :
+                continue
+            else:
+                if reject_plus[idx]==True :
+                   group[idx] = 'F'
+                   category_selectivity[idx] = self.cohen_d(A_face, A_place)
+                elif reject_minus[idx]==True :
+                   group[idx] = 'P'
+                   category_selectivity[idx] = self.cohen_d(A_place, A_face)
+        return group, category_selectivity
+    
+    
+    def retinotopic(self, visual_channels, group, dfelec):
+        """
+        Return retinotopic site from V1 and V2 given Brodman atlas.
+        """
+        nchan = len(group)
+        bipolar_visual = [visual_channels[i].split('-') for i in range(nchan)]
+        for i in range(nchan):
+            brodman = (dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][0]].to_string(index=False), 
+                       dfelec['Brodman'].loc[dfelec['electrode_name']==bipolar_visual[i][1]].to_string(index=False))
+            if ' V1' in brodman or ' V2' in brodman and group[i]!='F' and  group[i] !='P':
+                group[i]='R'
+        return group
+    
+    def extract_stim_id(self, event_id, cat = 'Face'):
+        """
+        Returns event id of specific stimuli category (Face or Place)
+        """
+        p = re.compile(cat)
+        stim_id = []
+        for key in event_id.keys():
+            if p.match(key):
+                stim_id.append(key)
+        return stim_id
+
+    def compute_peak_time(self, hfb, visual_chan, tmin=0.05, tmax=1.75):
+        """
+        Return time of peak amplitude for each visual channel
+        """
+        nchan = len(visual_chan)
+        peak_time = [0] * nchan
+        hfb = hfb.copy().pick_channels(visual_chan)
+        hfb = hfb.copy().crop(tmin=tmin, tmax = tmax)
+        time = hfb.times
+        A = hfb.copy().get_data()
+        evok = np.mean(A,axis=0)
+        for i in range(nchan):
+            peak = np.amax(evok[i,:])
+            peak_sample = np.where(evok[i,:]==peak)
+            peak_sample = peak_sample[0][0]
+            peak_time[i] = time[peak_sample]
+        return peak_time
 
 # %% Create category specific time series as input for mvgc toolbox
 
@@ -977,8 +966,9 @@ def category_hfb(hfb_visual, cat='Rest', tmin_crop = -0.5, tmax_crop=1.75) :
     Return category visual time hfb_db cropped in a time interval [tmin_crop tmax_crop]
     of interest
     """
+    hfb_db = Hfb_db()
     epochs, events = epoch_category(hfb_visual, cat=cat, tmin=-0.5, tmax=1.75)
-    hfb = db_transform(epochs, tmin=-0.4, tmax=-0.1, t_prestim = -0.5, mode='logratio')
+    hfb = hfb_db.db_transform(epochs, tmin=-0.4, tmax=-0.1, t_prestim = -0.5, mode='logratio')
     hfb = hfb.crop(tmin=tmin_crop, tmax=tmax_crop)
     return hfb
 
@@ -1011,6 +1001,7 @@ def epoch_category(hfb_visual, cat='Rest', tmin=-0.5, tmax=1.75):
     """
     Epoch category specific hfb
     """
+    category = Classify_visual_site()
     if cat == 'Rest':
         events_1 = mne.make_fixed_length_events(hfb_visual, id=32, start=100, 
                                                 stop=156, duration=2, first_samp=False, overlap=0.0)
@@ -1024,7 +1015,7 @@ def epoch_category(hfb_visual, cat='Rest', tmin=-0.5, tmax=1.75):
                             tmin=tmin, tmax=tmax, baseline= None, preload=True)
     else:
         stim_events, stim_events_id = mne.events_from_annotations(hfb_visual)
-        cat_id = extract_stim_id(stim_events_id, cat = cat)
+        cat_id = category.extract_stim_id(stim_events_id, cat = cat)
         epochs= mne.Epochs(hfb_visual, stim_events, event_id= stim_events_id, 
                             tmin=tmin, tmax=tmax, baseline= None, preload=True)
         epochs = epochs[cat_id]

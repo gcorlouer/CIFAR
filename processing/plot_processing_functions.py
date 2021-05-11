@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from pathlib import Path, PurePath
-from test_config import args
+from config import args
 
 ichan=6
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon May 10 20:14:06 2021
-Config file 
+Config file, contain all parameters for analysis
 @author: guime
 """
 import argparse
