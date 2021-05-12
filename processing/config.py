@@ -50,7 +50,7 @@ parser.add_argument("--mode", type=str, default='logratio')
 
 parser.add_argument("--tmin_prestim", type=float, default=-0.4)
 parser.add_argument("--tmax_prestim", type=float, default=-0.1)
-parser.add_argument("--tmin_postim", type=float, default=0.1)
+parser.add_argument("--tmin_postim", type=float, default=0.2)
 parser.add_argument("--tmax_postim", type=float, default=0.5)
 parser.add_argument("--alpha", type=float, default=0.05)
 parser.add_argument("--zero_method", type=str, default='pratt')

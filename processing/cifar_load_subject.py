@@ -38,7 +38,7 @@ class Subject:
 #%% Load data at a given processing stage
 
     def load_data(self, proc= 'preproc', stage= '_BP_montage_HFB_raw.fif',
-                  preload=True, epo=False):
+                  preload=True, epoch=False):
         """
         Load data at specific processing stage into RAW object
         """
@@ -46,7 +46,7 @@ class Subject:
         sub = self.name
         fname = sub + stage
         fpath = datadir.joinpath(fname)
-        if epo==False:
+        if epoch==False:
             data = mne.io.read_raw_fif(fpath, preload=preload)
         else:
             data = mne.read_epochs(fpath, preload=preload)

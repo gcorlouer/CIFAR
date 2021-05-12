@@ -44,7 +44,7 @@ class Subject:
 #%% Load data at a given processing stage
 
     def load_data(self, proc= 'preproc', stage= '_BP_montage_HFB_raw.fif',
-                  preload=True, epo=False):
+                  preload=True, epoch=False):
         """
         Load data at specific processing stage into RAW object
         """
@@ -52,7 +52,7 @@ class Subject:
         sub = self.name
         fname = sub + stage
         fpath = datadir.joinpath(fname)
-        if epo==False:
+        if epoch==False:
             data = mne.io.read_raw_fif(fpath, preload=preload)
         else:
             data = mne.read_epochs(fpath, preload=preload)
@@ -265,7 +265,7 @@ def cifar_cohort_path(home='~'):
 
 class Hfb:
     """
-    Class for HFB extraction
+    Class for HFB envelope extraction
     """
     def __init__(self, l_freq=60.0, nband=6, band_size=20.0, l_trans_bandwidth= 10.0,
                 h_trans_bandwidth= 10.0, filter_length='auto', phase='minimum',
@@ -397,15 +397,14 @@ class Hfb:
 
 class Hfb_db(Hfb):
     """
-    Class for HFB rescaling and dB transform HFB
+    Class for HFB rescaling and dB transform 
     """
     def __init__(self, t_prestim=-0.5, t_postim = 1.75, baseline=None,
                  preload=True, tmin=-0.4, tmax=-0.1, mode='logratio'):
-        super().__init__(t_prestim=-0.5, t_postim = 1.75, baseline=None,
-                         preload=True, tmin=-0.4, tmax=-0.1, mode='logratio')
+        super().__init__()
         self.t_prestim = t_prestim
         self.t_postim = t_postim
-        self.baselin = baseline
+        self.baseline = baseline
         self.preload = preload
         self.tmin = tmin
         self.tmax = tmax
@@ -441,7 +440,7 @@ class Hfb_db(Hfb):
         """
         events, event_id = mne.events_from_annotations(hfb) 
         epochs = mne.Epochs(hfb, events, event_id= event_id, tmin=self.t_prestim, 
-                        tmax=self.t_postim, baseline=self.baseline,preload=self.preload)
+                        tmax=self.t_postim, baseline=self.baseline, preload=self.preload)
         return epochs
 
 
@@ -453,11 +452,11 @@ class Hfb_db(Hfb):
         events = epochs.events
         event_id = epochs.event_id
         # Drop boundary event for compatibility. This does not affect results.
-        # del event_id['boundary'] 
+        del event_id['boundary'] 
         A = epochs.get_data()
         times = epochs.times
         # db transform
-        A = 10*mne.baseline.rescale(A,times,baseline=(self.tmin,self.tmax),
+        A = 10*mne.baseline.rescale(A, times,baseline=(self.tmin,self.tmax),
                                     mode=self.mode)
         # Create epoch object from array
         hfb = mne.EpochsArray(A, epochs.info, events=events, 
@@ -483,7 +482,7 @@ class Detect_visual_site:
     """
     Detect visually responsive channels
     """
-    def __init__(self, tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=-0.1,
+    def __init__(self, tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=0.1,
                tmax_postim=0.5, alpha=0.05, zero_method='pratt',
                alternative='two-sided'):
         self.tmin_prestim = tmin_prestim
@@ -566,7 +565,7 @@ class Detect_visual_site:
         return reject
     
     
-    def multiple_wilcoxon_test(self, A_postim, A_prestim):
+    def multiple_wilcoxon_test(self, A_postim, A_prestim, alternative='two-sided'):
         """
         Wilcoxon test hypothesis of no difference between prestimulus and postimulus amplitude
         Correct for multilple hypothesis test.
@@ -733,10 +732,10 @@ class Classify_visual_site(Detect_visual_site):
     """
     Classify visual channels into Face, Place and retinotopic channels
     """
-    def __init__(self, tmin_postim=0.2, tmax_postim=0.5, alpha=0.05, 
-                 zero_method='pratt'):
-        super().__init__(tmin_postim=0.2, tmax_postim=0.5, alpha=0.05, 
-                 zero_method='pratt')
+    def __init__(self, tmin_prestim, tmax_prestim, tmin_postim,
+               tmax_postim, alpha, zero_method, alternative):
+        super().__init__(tmin_prestim, tmax_prestim, tmin_postim,
+               tmax_postim, alpha, zero_method, alternative)
 
     def hfb_to_visual_populations(self, hfb_db, dfelec):
         """
@@ -763,7 +762,7 @@ class Classify_visual_site(Detect_visual_site):
         
         # Compute peak time
         
-        peak_time = self.compute_peak_time(self, hfb_db, visual_chan, tmin=0.05, tmax=1.75)
+        peak_time = self.compute_peak_time(hfb_db, visual_chan, tmin=0.05, tmax=1.75)
         
         # Create visual_populations dictionary 
         visual_populations = {'chan_name': [], 'group': [], 'latency': [], 
@@ -797,14 +796,11 @@ class Classify_visual_site(Detect_visual_site):
         A_place = self.crop_stim_hfb(visual_hfb, place_id, tmin=self.tmax_postim, tmax=self.tmax_postim)
         
         n_visuals = len(visual_hfb.info['ch_names'])
-        w_test_plus = self.multiple_wilcoxon_test(A_face, A_place, zero_method=self.zero_method,
-                                             alternative = 'greater', alpha=self.alpha)
+        w_test_plus = self.multiple_wilcoxon_test(A_face, A_place, alternative = 'greater')
         reject_plus = w_test_plus[0]
     
         
-        w_test_minus = self.multiple_wilcoxon_test(A_face, A_place,
-                                              zero_method=self.zero_method,
-                                              alternative = 'less', alpha=self.alpha)
+        w_test_minus = self.multiple_wilcoxon_test(A_face, A_place, alternative = 'less')
         reject_minus = w_test_minus[0]
     
         
