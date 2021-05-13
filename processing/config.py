@@ -59,7 +59,7 @@ parser.add_argument("--alternative", type=str, default='two-sided')
 #%% Create category specific time series
 
 parser.add_argument("--sfreq", type=float, default=250.0)
-parser.add_argument("--tmin_crop", type=float, default=0.0)
+parser.add_argument("--tmin_crop", type=float, default=0.2)
 parser.add_argument("--tmax_crop", type=float, default=1.5)
 
 #%%

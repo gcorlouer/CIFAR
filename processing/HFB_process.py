@@ -40,7 +40,7 @@ class Subject:
         """
         self.name = name
         self.task = task
-        self.run = run 
+        self.run = run
 #%% Load data at a given processing stage
 
     def load_data(self, proc= 'preproc', stage= '_BP_montage_HFB_raw.fif',
@@ -57,6 +57,17 @@ class Subject:
         else:
             data = mne.read_epochs(fpath, preload=preload)
         return data
+    
+    def load_visual_hfb(self, proc= 'preproc', 
+                            stage= '_BP_montage_hfb_raw.fif'):
+        """
+        Load visual hfb and visual channels
+        """
+        raw = self.load_data(proc= proc, stage= stage)
+        visual_chan = self.pick_visual_chan()
+        visual_chan = visual_chan['chan_name'].values.tolist()
+        hfb_visual = raw.copy().pick_channels(visual_chan)
+        return hfb_visual, visual_chan
 
     def processing_stage_path(self, proc='raw_signal'):
         """
@@ -128,6 +139,22 @@ class Subject:
         # visual_chan = visual_chan.sort_values(by='latency')
         return visual_chan
     
+    def pick_specific_visual_chan(self, picks, visual_chan):
+        """
+        Pick specific visual channels from visual channels
+        """
+        drop_index = []
+        
+        for chan in visual_chan['chan_name'].to_list():
+            if chan in picks:
+                continue
+            else:
+                drop_index.extend(visual_chan.loc[visual_chan['chan_name']==chan].index.tolist())
+        
+        visual_chan = visual_chan.drop(drop_index)
+        visual_chan = visual_chan.reset_index(drop=True)
+        return visual_chan
+
     def low_high_chan(self, fname = 'visual_channels_BP_montage.csv'):
         """
         Drop channels in other category to only keep retinotopic (low)  
@@ -452,7 +479,7 @@ class Hfb_db(Hfb):
         events = epochs.events
         event_id = epochs.event_id
         # Drop boundary event for compatibility. This does not affect results.
-        del event_id['boundary'] 
+        # del event_id['boundary'] 
         A = epochs.get_data()
         times = epochs.times
         # db transform
@@ -732,8 +759,9 @@ class Classify_visual_site(Detect_visual_site):
     """
     Classify visual channels into Face, Place and retinotopic channels
     """
-    def __init__(self, tmin_prestim, tmax_prestim, tmin_postim,
-               tmax_postim, alpha, zero_method, alternative):
+    def __init__(self, tmin_prestim=-0.4, tmax_prestim=-0.1, tmin_postim=0.1,
+               tmax_postim=0.5, alpha=0.05, zero_method='pratt',
+               alternative='two-sided'):
         super().__init__(tmin_prestim, tmax_prestim, tmin_postim,
                tmax_postim, alpha, zero_method, alternative)
 
@@ -913,41 +941,10 @@ def category_lfp(lfp, visual_chan, tmin_crop=-0.5, tmax_crop =1.75, sfreq=500):
     ts = np.transpose(ts, (2, 3, 1, 0))
     return ts, time
 
-
-def load_visual_hfb(sub_id= 'DiAs', proc= 'preproc', 
-                            stage= '_BP_montage_hfb_raw.fif'):
+def hfb_to_category_time_series(hfb, visual_chan, sfreq=250, cat='Rest', tmin_crop = 0.5, tmax_crop=1.5):
     """
-    Load visual hfb and visual channels
-    """
-    subject = Subject(name=sub_id)
-    raw = subject.load_data(proc= proc, stage= stage)
-    visual_chan = subject.pick_visual_chan()
-    visual_chan = visual_chan['chan_name'].values.tolist()
-    hfb_visual = raw.copy().pick_channels(visual_chan)
-    return hfb_visual, visual_chan
-
-
-def pick_visual_chan(picks, visual_chan):
-    """
-    Pick specific visual channels from visual channels
-    """
-    drop_index = []
-    
-    for chan in visual_chan['chan_name'].to_list():
-        if chan in picks:
-            continue
-        else:
-            drop_index.extend(visual_chan.loc[visual_chan['chan_name']==chan].index.tolist())
-    
-    visual_chan = visual_chan.drop(drop_index)
-    visual_chan = visual_chan.reset_index(drop=True)
-    return visual_chan
-
-
-def hfb_to_category_time_series(hfb, visual_chan, sfreq=250, cat='Rest', tmin_crop = 0.5, tmax_crop=1.75):
-    """
-    Return category visual time series cropped in a time interval [tmin_crop tmax_crop]
-    of interest, resampled
+    Return resampled category visual time series cropped in a time interval [tmin_crop tmax_crop]
+    of interest     
     """
     hfb = category_hfb(hfb, cat=cat, tmin_crop = tmin_crop, tmax_crop=tmax_crop)
     hfb = hfb.resample(sfreq=sfreq)
@@ -956,18 +953,42 @@ def hfb_to_category_time_series(hfb, visual_chan, sfreq=250, cat='Rest', tmin_cr
     X = sort_visual_chan(sorted_indices, hfb)
     return X, time
 
-
-def category_hfb(hfb_visual, cat='Rest', tmin_crop = -0.5, tmax_crop=1.75) :
+def category_hfb(hfb, cat='Rest', tmin_crop = 0.5, tmax_crop=1.5) :
     """
     Return category visual time hfb_db cropped in a time interval [tmin_crop tmax_crop]
     of interest
     """
     hfb_db = Hfb_db()
-    epochs, events = epoch_category(hfb_visual, cat=cat, tmin=-0.5, tmax=1.75)
-    hfb = hfb_db.db_transform(epochs, tmin=-0.4, tmax=-0.1, t_prestim = -0.5, mode='logratio')
+    epochs, events = epoch_category(hfb, cat=cat, tmin=-0.5, 
+                                    tmax=1.75)
+    hfb = hfb_db.db_transform(epochs)
     hfb = hfb.crop(tmin=tmin_crop, tmax=tmax_crop)
     return hfb
 
+def epoch_category(raw, cat='Rest', tmin=-0.5, tmax=1.75):
+    """
+    Epoch category specific raw object (raw can be hfb or lfp)
+    """
+    category = Classify_visual_site()
+    if cat == 'Rest':
+        events_1 = mne.make_fixed_length_events(raw, id=32, start=100, 
+                                                stop=156, duration=2, first_samp=False, overlap=0.0)
+        events_2 = mne.make_fixed_length_events(raw, id=32, 
+                                                start=300, stop=356, duration=2, first_samp=False, overlap=0.0)
+        
+        events = np.concatenate((events_1,events_2))
+        rest_id = {'Rest': 32}
+        # epoch
+        epochs= mne.Epochs(raw, events, event_id= rest_id, 
+                            tmin=tmin, tmax=tmax, baseline= None, preload=True)
+    else:
+        stim_events, stim_events_id = mne.events_from_annotations(raw)
+        cat_id = category.extract_stim_id(stim_events_id, cat = cat)
+        epochs= mne.Epochs(raw, stim_events, event_id= stim_events_id, 
+                            tmin=tmin, tmax=tmax, baseline= None, preload=True)
+        epochs = epochs[cat_id]
+        events = epochs.events
+    return epochs, events
 
 def sort_visual_chan(sorted_indices, hfb):
     """
@@ -991,33 +1012,6 @@ def sort_indices(hfb, visual_chan):
     for idx, chan in enumerate(unsorted_chan):
         sorted_indices[idx] = visual_chan.index(chan)
     return sorted_indices
-
-
-def epoch_category(hfb_visual, cat='Rest', tmin=-0.5, tmax=1.75):
-    """
-    Epoch category specific hfb
-    """
-    category = Classify_visual_site()
-    if cat == 'Rest':
-        events_1 = mne.make_fixed_length_events(hfb_visual, id=32, start=100, 
-                                                stop=156, duration=2, first_samp=False, overlap=0.0)
-        events_2 = mne.make_fixed_length_events(hfb_visual, id=32, 
-                                                start=300, stop=356, duration=2, first_samp=False, overlap=0.0)
-        
-        events = np.concatenate((events_1,events_2))
-        rest_id = {'Rest': 32}
-        # epoch
-        epochs= mne.Epochs(hfb_visual, events, event_id= rest_id, 
-                            tmin=tmin, tmax=tmax, baseline= None, preload=True)
-    else:
-        stim_events, stim_events_id = mne.events_from_annotations(hfb_visual)
-        cat_id = category.extract_stim_id(stim_events_id, cat = cat)
-        epochs= mne.Epochs(hfb_visual, stim_events, event_id= stim_events_id, 
-                            tmin=tmin, tmax=tmax, baseline= None, preload=True)
-        epochs = epochs[cat_id]
-        events = epochs.events
-    return epochs, events
-
 
 def parcellation_to_indices(visual_population, parcellation='group'):
     """
@@ -1063,7 +1057,7 @@ def chan_specific_category_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.
     """
     subject = Subject(sub_id)
     visual_populations = subject.pick_visual_chan()
-    hfb, visual_chan = load_visual_hfb(sub_id= sub_id, proc= proc, 
+    hfb, visual_chan = subject.load_visual_hfb(proc= proc, 
                                 stage= stage)
     hfb = hfb.pick_channels(picks)
     
@@ -1078,7 +1072,7 @@ def chan_specific_category_lfp(picks, proc='preproc', stage='_BP_montage_preproc
     """
     subject = Subject(sub_id)
     visual_populations = subject.pick_visual_chan()
-    lfp, visual_chan = load_visual_hfb(sub_id= sub_id, proc= proc, 
+    lfp, visual_chan = subject.load_visual_hfb(proc= proc, 
                                 stage= stage)
     lfp = lfp.pick_channels(picks)
     
@@ -1133,7 +1127,7 @@ def cross_subject_ts(subjects, proc='preproc', stage= '_BP_montage_HFB_raw.fif',
         subject = Subject(name=sub_id)
         datadir = subject.processing_stage_path(proc=proc)
         visual_chan = subject.pick_visual_chan()
-        hfb, visual_chan = load_visual_hfb(sub_id = sub_id, proc= proc, 
+        hfb, visual_chan = subject.load_visual_hfb(proc= proc, 
                                 stage= stage)
         ts[s], time = category_ts(hfb, visual_chan, sfreq=sfreq, 
                                   tmin_crop=tmin_crop, tmax_crop=tmax_crop)

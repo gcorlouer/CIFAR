@@ -11,7 +11,7 @@ class A():
         self.a = a
 
 class B(A):
-    def __init__(self, a):
+    def __init__(self, a=2):
         super().__init__(a)
 
 a = 0.3

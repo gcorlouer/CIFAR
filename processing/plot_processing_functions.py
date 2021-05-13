@@ -78,3 +78,10 @@ cv = hf.Classify_visual_site(tmin_prestim=args.tmin_prestim, tmax_prestim=args.t
 
 visual_populations = cv.hfb_to_visual_populations(hfb_db, dfelec)
 
+#%% Test category time series
+
+visual_populations = subject.pick_visual_chan()
+hfb, visual_chan = subject.load_visual_hfb(proc= args.proc, 
+                            stage= args.stage)
+
+epochs = hf.category_hfb(hfb, cat='Face', tmin_crop = 0.5, tmax_crop=1.5)
