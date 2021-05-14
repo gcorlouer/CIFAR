@@ -37,7 +37,16 @@ class Subject:
         Parameters:
             - name: name of subject
             - task: 'stimuli', 'rest_baseline', 'sleep' 
-            - run : 1, 2  
+            - run : 1, 2
+            - proc: 'raw_signal', 'bipolar_montage', 'preproc'
+                    'preproc' is the repository containing data at some 
+                    preprocessed stage
+            -stage: Name of the file corresponding to a preprocessed stage 
+                    (see config file for all possible file names)
+            -preload: True, False
+                        Preloading data with MNE
+            -epoch: True, False
+                    Read epoched file with read_epochs function
         """
         self.name = name
         self.task = task
@@ -48,8 +57,14 @@ class Subject:
         self.epoch = epoch
 
     def read_dataset(self):
-        
-        subject_path = cohort_path.joinpath(self.name)
+        """
+        Reads dataset of interest. 
+        If reads raw or bipolar montage dataset
+        then call mne function to read .set eeglab format. 
+        If reads at some preprocessing stage 
+        then call mne function to read .fif fromat. 
+        """
+        subject_path = self.cohort_path.joinpath(self.name)
         proc_path = subject_path.joinpath('EEGLAB_datasets', self.proc)
         if self.proc == 'preproc':
             fname = self.name + self.stage
@@ -70,19 +85,17 @@ class Subject:
 
     def read_channels_info(self, fname='electrodes_info.csv'):
         """
-        Read subject specific channels information into a dataframe. 
-        Channels info can be contain the subject sites or visually responsive 
-        channels
-        ----------
-        Parameters
-        ----------
+        Read subject-specific channels information into a dataframe. 
+        ------
+        Input
+        ------
         fname: file name of the channels
         fname= 'electrodes_info.csv', 'visual_BP_channels.csv'
         Note:
         If user wants to read visually responsive channels from all subjects in
         one table, look up 'visual_electrodes.csv' file in /iEEG_10 path.
         """
-        subject_path = cohort_path.joinpath(self.name)
+        subject_path = self.cohort_path.joinpath(self.name)
         brain_path = subject_path.joinpath('brain')
         channel_path = brain_path.joinpath(fname)
         channel_info = pd.read_csv(channel_path)
