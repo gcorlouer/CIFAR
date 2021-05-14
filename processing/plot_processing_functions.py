@@ -20,11 +20,16 @@ ichan=6
 #%% Load data
 
 subject = hf.Subject()
+raw = subject.load_data(proc= 'raw_signal', stage= args.stage,
+                  preload=True, epoch=args.epoch)
+
+#%% Test narrow band envelope extraction
+
 fpath = subject.processing_stage_path(proc = args.proc)
 fname = args.sub_id + args.stage
 fpath = fpath.joinpath(fname)
 raw = mne.io.read_raw_fif(fpath, preload=True)
-#%% Test filtering
+
 raw = raw.crop(tmin=100, tmax=102)
 times = raw.times
 raw_filt = raw.copy().filter(l_freq=args.l_freq, h_freq=80,

@@ -8,13 +8,22 @@ Config file, contain all parameters for analysis
 import argparse
 
 #%% Loading data parameters
-subjects = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'NeLa', 'SoGi']
+
+cohort = ['AnRa',  'AnRi',  'ArLa',  'BeFe',  'DiAs',  'FaWa',  'JuRo', 'NeLa', 'SoGi']
+
+# Path to subjects repository. Enter your own path in local machine
+cohort_path = Path('~','projects', 'CIFAR', 'CIFAR_data', 'iEEG_10', 
+                   'subjects').expanduser()
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--subjects", type=list, default=subjects)
+parser.add_argument("--cohort_path", type=list, default=cohort_path)
+parser.add_argument("--subjects", type=list, default=cohort)
 parser.add_argument("--sub_id", type=str, default='DiAs')
 parser.add_argument("--proc", type=str, default='preproc')
 parser.add_argument("--stage", type=str, default='_BP_montage_preprocessed_raw.fif')
+parser.add_argument("--epoch", type=bool, default=False)
+
+
 # Preprocessing stages:
 
 # _BP_montage_concatenated_bads_marked_raw.fif
@@ -27,7 +36,6 @@ parser.add_argument("--stage", type=str, default='_BP_montage_preprocessed_raw.f
 
 #%% Filtering parameters
 
-# Useful channel to test on: ichan = 6
 parser.add_argument("--l_freq", type=float, default=60.0)
 parser.add_argument("--band_size", type=float, default=20.0)
 parser.add_argument("--l_trans_bandwidth", type=float, default=10.0)

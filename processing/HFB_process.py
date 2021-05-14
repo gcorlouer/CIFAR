@@ -31,7 +31,8 @@ class Subject:
     """
     Class subject
     """
-    def __init__(self, name='DiAs', task='stimuli', run='1'):
+    def __init__(self, cohort_path, name='DiAs', task='stimuli', run='1', proc='preproc',
+                 stage='_BP_montage_HFB_raw.fif', preload=True, epoch=False):
         """
         Parameters:
             - name: name of subject
@@ -41,252 +42,51 @@ class Subject:
         self.name = name
         self.task = task
         self.run = run
-#%% Load data at a given processing stage
+        self.proc = proc
+        self.stage = stage
+        self.preload=preload
+        self.epoch = epoch
 
-    def load_data(self, proc= 'preproc', stage= '_BP_montage_HFB_raw.fif',
-                  preload=True, epoch=False):
-        """
-        Load data at specific processing stage into RAW object
-        """
-        datadir = self.processing_stage_path(proc=proc)
-        sub = self.name
-        fname = sub + stage
-        fpath = datadir.joinpath(fname)
-        if epoch==False:
-            data = mne.io.read_raw_fif(fpath, preload=preload)
-        else:
-            data = mne.read_epochs(fpath, preload=preload)
-        return data
-    
-    def load_visual_hfb(self, proc= 'preproc', 
-                            stage= '_BP_montage_hfb_raw.fif'):
-        """
-        Load visual hfb and visual channels
-        """
-        raw = self.load_data(proc= proc, stage= stage)
-        visual_chan = self.pick_visual_chan()
-        visual_chan = visual_chan['chan_name'].values.tolist()
-        hfb_visual = raw.copy().pick_channels(visual_chan)
-        return hfb_visual, visual_chan
-
-    def processing_stage_path(self, proc='raw_signal'):
-        """
-        Return data path at some processed stage
-        """
-        subject_path = self.subject_path()
-        proc_path = subject_path.joinpath('EEGLAB_datasets', proc)
-        return proc_path
-
-    def subject_path(self):
-        """
-        Return path of the subject
-        """    
-        cohort_path = cifar_cohort_path() # home directory
-        subject_path = cohort_path.joinpath(self.name)
-        return subject_path
-
-#%% Read EEGLAB dataset
-
-    def read_eeglab(self, proc= 'raw_signal', suffix = '', ext='.set',preload=True):
-        """
-        Read EEGlab dataset as RAW object in MNE
-        """
-        fpath = self.dataset_path(proc = proc, suffix=suffix)
-        raw = mne.io.read_raw_eeglab(fpath, preload=preload)
+    def read_dataset(self):
         
+        subject_path = cohort_path.joinpath(self.name)
+        proc_path = subject_path.joinpath('EEGLAB_datasets', self.proc)
+        if self.proc == 'preproc':
+            fname = self.name + self.stage
+            fpath = proc_path.joinpath(fname)
+            if self.epoch==False:
+                raw = mne.io.read_raw_fif(fpath, preload=self.preload)
+            else:
+                raw = mne.read_epochs(fpath, preload=self.preload)
+        else:
+            fname = [self.name, "freerecall", self.task, self.run, 'preprocessed']
+            if self.proc == 'bipolar_montage':
+                fname.append('BP_montage')
+            fname = "_".join(fname)
+            fname = fname + '.set'
+            fpath = proc_path.joinpath(fname)
+            raw = mne.io.read_raw_eeglab(fpath, preload=self.preload)
         return raw
 
-    def dataset_path(self, proc='raw_signal', suffix='', ext='.set'):
+    def read_channels_info(self, fname='electrodes_info.csv'):
         """
-        Return dataset path
+        Read subject specific channels information into a dataframe. 
+        Channels info can be contain the subject sites or visually responsive 
+        channels
+        ----------
+        Parameters
+        ----------
+        fname: file name of the channels
+        fname= 'electrodes_info.csv', 'visual_BP_channels.csv'
+        Note:
+        If user wants to read visually responsive channels from all subjects in
+        one table, look up 'visual_electrodes.csv' file in /iEEG_10 path.
         """
-        processing_stage_path = self.processing_stage_path(proc)
-        dataset_ext = self.dataset_ext(suffix=suffix, ext=ext)
-        dataset_path = processing_stage_path.joinpath(dataset_ext)
-        dataset_path = os.fspath(dataset_path)
-        return dataset_path
-    
-    def dataset(self, suffix=''):
-        """
-        Return  dataset name
-        """
-        dataset = [self.name, "freerecall", self.task, self.run, 'preprocessed']
-        if suffix  == '':
-            dataset = dataset
-        else:
-            dataset = dataset +[suffix]
-        dataset = "_".join(dataset)
-        return dataset
-
-    def dataset_ext(self, suffix='', ext='.set'):
-        """
-        Return  dataset name  with extension
-        """
-        dataset = self.dataset(suffix)
-        dataset_ext = dataset+ext
-        return dataset_ext
-
-#%% Pick visual channels
-
-    def pick_visual_chan(self, fname = 'visual_BP_channels.csv'):
-        """
-        Return list of visually responsive channels
-        """
-        brain_path = self.brain_path()
-        fpath = brain_path.joinpath(fname)
-        visual_chan = pd.read_csv(fpath)
-        # Not necessary but uncomment in case need sorting channels
-        # visual_chan = visual_chan.sort_values(by='latency')
-        return visual_chan
-    
-    def pick_specific_visual_chan(self, picks, visual_chan):
-        """
-        Pick specific visual channels from visual channels
-        """
-        drop_index = []
-        
-        for chan in visual_chan['chan_name'].to_list():
-            if chan in picks:
-                continue
-            else:
-                drop_index.extend(visual_chan.loc[visual_chan['chan_name']==chan].index.tolist())
-        
-        visual_chan = visual_chan.drop(drop_index)
-        visual_chan = visual_chan.reset_index(drop=True)
-        return visual_chan
-
-    def low_high_chan(self, fname = 'visual_channels_BP_montage.csv'):
-        """
-        Drop channels in other category to only keep retinotopic (low)  
-        Face and Place selective channels (high)
-        """
-        visual_chan = self.pick_visual_chan(fname)
-        visual_chan = visual_chan[visual_chan.group != 'other']
-        visual_chan = visual_chan.reset_index(drop=True)
-        return visual_chan
-
-    def brain_path(self):
-        """
-        Return anatomical information path
-        """
-        subject_path = self.subject_path()
+        subject_path = cohort_path.joinpath(self.name)
         brain_path = subject_path.joinpath('brain')
-        return brain_path
-
-#%% Return electrodes info
-
-    def df_electrodes_info(self):
-        """"
-        Return electrode info as dataframe
-        """
-        electrodes_file = self.electrodes_file()
-        df_electrodes_info = pd.read_csv(electrodes_file)
-        return df_electrodes_info
-    
-    def electrodes_file(self):
-        """
-        Return path of file containging electrode information
-        """
-        brain_path = self.brain_path()
-        electrodes_file = brain_path.joinpath('electrodes_info.csv')
-        return electrodes_file
-
-    def ROI_DK(self, picks):
-        """
-        Return list of DK ROI corresponding to list of picked channels 
-        """
-        df_electrodes_info = self.df_electrodes_info()
-        ROI_DK = self.picks2DK(df_electrodes_info, picks)
-        return ROI_DK
-
-#%% Return list of ROI given list of channels
-
-    def ROI_brodman(self, picks):
-        """
-        Return list of Brodman area corresponding to list of picked channels
-        """
-        df_electrodes_info = self.df_electrodes_info()
-        ROI_brodman = self.picks2brodman(df_electrodes_info, picks)
-        return ROI_brodman
-
-    def brodman(self, chan_name):
-        """
-        Return Brodman area of a given channel
-        """
-        df_electrodes_info = self.df_electrodes_info()
-        brodman = self.chan2brodman(df_electrodes_info, chan_name)
-        return brodman
-
-    def chan2brodman(self, df_electrodes_info, electrode_name):
-        """
-        Given channel name return corresponding brodman area
-        """
-        brodman = df_electrodes_info['Brodman'].loc[df_electrodes_info['electrode_name']== electrode_name]
-        brodman = brodman.values
-        if len(brodman)==1: #known ROI
-            brodman = brodman[0]
-        else:
-            brodman = 'unknown'
-        return brodman
-
-    def chan2DK(self, df_electrodes_info, electrode_name):
-        """
-        Given channel name, return corresponding DK ROI
-        """
-        DK = df_electrodes_info['ROI_DK'].loc[df_electrodes_info['electrode_name']== electrode_name]
-        DK = DK.values
-        if len(DK)==1: #known ROI
-            DK = DK[0]
-        else:
-            DK = 'unknown'
-        return DK
-    
-    def picks2brodman(self, df_electrodes_info, picks):
-        """
-        Given list of channels return corresponding list of brodman area
-        """
-        ROI_brodman = []
-        for chan in picks:
-            brodman = self.chan2brodman(df_electrodes_info, chan)
-            ROI_brodman.append(brodman)
-        return ROI_brodman
-    
-    def picks2DK(self, df_electrodes_info, picks):
-        """
-        Given list of channels return corresponding list of DK area
-        """
-        ROI_DK = []
-        for chan in picks:
-            DK = self.chan2DK(df_electrodes_info, chan)
-            ROI_DK.append(DK)
-        return ROI_DK
-
-#%% Helper path functions.
-# Note that user migt want to modify path appropriate to local machine
-
-def cifar_ieeg_path(home='~'):
-    """
-    Return CIFAR data path
-    """
-    home = Path(home).expanduser()
-    ieeg_path = home.joinpath('projects', 'CIFAR', 'CIFAR_data', 'iEEG_10')
-    return ieeg_path 
-
-def all_visual_channels_path(home='~'):
-    """
-    Return table containing all visual electrodes path
-    """
-    all_visual_channels_path = cifar_ieeg_path()
-    all_visual_channels_path = all_visual_channels_path.joinpath('visual_electrodes.csv')
-    return all_visual_channels_path
-
-def cifar_cohort_path(home='~'):
-    """
-    Return subject path
-    """
-    ieeg_path = cifar_ieeg_path(home)
-    cohort_path = ieeg_path.joinpath('subjects')
-    return cohort_path
+        channel_path = brain_path.joinpath(fname)
+        channel_info = pd.read_csv(channel_path)
+        return channel_info
 
 # %% Extract hfb envelope
 
@@ -420,6 +220,8 @@ class Hfb:
         envelope_mean = np.mean(envelope, axis=1)
         envelope_norm = np.divide(envelope, envelope_mean[:,np.newaxis])
         return envelope_norm
+
+
 #%% Normalise with baseline, log transform and epoch hfb
 
 class Hfb_db(Hfb):
