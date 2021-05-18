@@ -25,56 +25,59 @@ from scipy import stats
 from pathlib import Path, PurePath
 from shutil import copy
 
-#%% Create subject class for loading data
+#%% Create Ecog class to read data
 
-class Subject:
+class Ecog:
     """
-    Class subject
+    Ecog class to read data
     """
-    def __init__(self, cohort_path, name='DiAs', task='stimuli', run='1', proc='preproc',
+    def __init__(self, cohort_path, subject='DiAs', proc='preproc',
                  stage='_BP_montage_HFB_raw.fif', preload=True, epoch=False):
         """
         Parameters:
-            - name: name of subject
-            - task: 'stimuli', 'rest_baseline', 'sleep' 
-            - run : 1, 2
+            - subject: Id of subject
             - proc: 'raw_signal', 'bipolar_montage', 'preproc'
                     'preproc' is the repository containing data at some 
                     preprocessed stage
             -stage: Name of the file corresponding to a preprocessed stage 
-                    (see config file for all possible file names)
+                    (see config.py file for all possible file names)
             -preload: True, False
                         Preloading data with MNE
             -epoch: True, False
                     Read epoched file with read_epochs function
         """
-        self.name = name
-        self.task = task
-        self.run = run
+        self.cohort_path = cohort_path
+        self.subject = subject
         self.proc = proc
         self.stage = stage
         self.preload=preload
         self.epoch = epoch
 
-    def read_dataset(self):
+    def read_dataset(self, run=1, task='stimuli'):
         """
-        Reads dataset of interest. 
+        Reads ECoG dataset of interest. 
         If reads raw or bipolar montage dataset
         then call mne function to read .set eeglab format. 
         If reads at some preprocessing stage 
         then call mne function to read .fif fromat. 
+        -------
+        Inputs:
+        -------
+        - task: 'stimuli', 'rest_baseline', 'sleep' 
+        - run : 1, 2
         """
-        subject_path = self.cohort_path.joinpath(self.name)
+        assert isinstance(run, int), "Run must be an integer"
+        subject_path = self.cohort_path.joinpath(self.subject)
         proc_path = subject_path.joinpath('EEGLAB_datasets', self.proc)
         if self.proc == 'preproc':
-            fname = self.name + self.stage
+            fname = self.subject + self.stage
             fpath = proc_path.joinpath(fname)
             if self.epoch==False:
                 raw = mne.io.read_raw_fif(fpath, preload=self.preload)
             else:
                 raw = mne.read_epochs(fpath, preload=self.preload)
         else:
-            fname = [self.name, "freerecall", self.task, self.run, 'preprocessed']
+            fname = [self.subject, "freerecall", task, str(run), 'preprocessed']
             if self.proc == 'bipolar_montage':
                 fname.append('BP_montage')
             fname = "_".join(fname)
@@ -95,11 +98,91 @@ class Subject:
         If user wants to read visually responsive channels from all subjects in
         one table, look up 'visual_electrodes.csv' file in /iEEG_10 path.
         """
-        subject_path = self.cohort_path.joinpath(self.name)
+        subject_path = self.cohort_path.joinpath(self.subject)
         brain_path = subject_path.joinpath('brain')
         channel_path = brain_path.joinpath(fname)
         channel_info = pd.read_csv(channel_path)
         return channel_info
+    
+    def concatenate_raw(self):
+        """
+        Concatenate ECoG datasets first by runs then by conditions
+        """
+        raw = self.concatenate_run(task='rest_baseline')
+        raw_stimuli = self.concatenate_run(task='stimuli')
+        # Concatenante both conditions
+        raw.append([raw_stimuli])
+        return raw
+    
+    def concatenate_run(self,  task='stimuli'):
+        """
+        Concatenate ECoG datasets by run
+        """
+        raw = self.read_dataset(run=1, task=task)
+        raw_2 = self.read_dataset(run=2, task=task)
+        # Concatenate both run
+        raw.append([raw_2])
+        return raw
+
+#%% Bad channel removal
+
+def drop_bad_chans(raw, q=99, voltage_threshold=500e-6):
+    """
+    Bad channel removal
+    """
+    outliers_chans = detect_outliers_chans(raw, q=q,
+                                           voltage_threshold=voltage_threshold)
+    raw = mark_bad_chan(raw)
+    raw.info['bads'].extend(outliers_chans)
+    bads = raw.info['bads']
+    print(f'List of all bad chans: {bads}')
+    raw = raw.copy().drop_channels(bads)
+    return raw
+
+
+def detect_outliers_chans(raw, q=99, voltage_threshold=500e-6):
+    """
+     Return outliers channels. Outliers are channels whose average value
+     in the 99th percentile are above voltage_threshold (500 muV)
+    """
+    X = raw.copy().get_data()
+    top_percentile = np.percentile(X, q=q, axis=1)
+    count = np.zeros_like(top_percentile)
+    average_99 = np.zeros_like(top_percentile)
+    nchan = X.shape[0]
+    nobs = X.shape[1]
+    for i in range(nchan):
+        for j in range(nobs):
+            if X[i,j] >= top_percentile[i]:
+                average_99[i] += X[i,j]
+                count[i] += 1
+            else:
+                continue
+        average_99[i] = average_99[i]/count[i]
+    # Return outliers channels
+    outliers_indices = np.where(average_99>=voltage_threshold)[0].tolist()
+    ch_names = raw.info['ch_names']
+    outliers_chans = []
+    for i in outliers_indices:
+        outliers_chans.append(ch_names[i])
+    print(f'List of outliers channels: {outliers_chans}')
+    return outliers_chans
+
+def mark_bad_chan(raw):
+    """
+    Add bad channels to raw.info structure. Bad channels are channels who are
+    not bipolar montaged
+    """
+    ch_names = raw.info['ch_names']
+    bad_chan = []
+    for chan in ch_names:
+        if '-' in chan:
+            continue
+        else:
+            raw.info['bads'].append(chan)
+    bads = raw.info['bads']
+    print(f'List of bad channels: {bads}')
+    return raw
 
 # %% Extract hfb envelope
 

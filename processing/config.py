@@ -6,6 +6,7 @@ Config file, contain all parameters for analysis
 @author: guime
 """
 import argparse
+from pathlib import Path, PurePath
 
 #%% Loading data parameters
 
@@ -17,8 +18,8 @@ cohort_path = Path('~','projects', 'CIFAR', 'CIFAR_data', 'iEEG_10',
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cohort_path", type=list, default=cohort_path)
-parser.add_argument("--subjects", type=list, default=cohort)
-parser.add_argument("--sub_id", type=str, default='DiAs')
+parser.add_argument("--cohort", type=list, default=cohort)
+parser.add_argument("--subject", type=str, default='SoGi')
 parser.add_argument("--proc", type=str, default='preproc')
 parser.add_argument("--stage", type=str, default='_BP_montage_preprocessed_raw.fif')
 parser.add_argument("--epoch", type=bool, default=False)
@@ -26,10 +27,10 @@ parser.add_argument("--epoch", type=bool, default=False)
 
 # Preprocessing stages:
 
-# _BP_montage_concatenated_bads_marked_raw.fif
-# _BP_montage_HFB_db_raw.fif
-# _BP_montage_HFB_raw.fif
-# _BP_montage_preprocessed_raw.fif
+# _BP_montage_concatenated_bads_marked_raw.fif: Marked bad channels
+# _BP_montage_preprocessed_raw.fif: Bad channels removed
+# _BP_montage_HFB_raw.fif: extracted HFB
+# _BP_montage_HFB_db_raw.fif: ?
 # _hfb_db_epo.fif
 # _hfb_db_raw.fif
 # _preprocessed_raw.fif

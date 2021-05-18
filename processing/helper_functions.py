@@ -23,7 +23,6 @@ def concatenate_run_dataset(sub_id = 'DiAs', proc='bipolar_montage', task = 'res
     raw = mne.io.read_raw_eeglab(fpath, preload=preload)
     raw_1 = raw.copy()
     
-         
     subject = cf.Subject(name=sub_id, task = task, run='2')
     fpath = subject.dataset_path(proc=proc, suffix='BP_montage', ext='.set')
     raw = mne.io.read_raw_eeglab(fpath, preload=preload)
