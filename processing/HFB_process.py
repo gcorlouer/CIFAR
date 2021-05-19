@@ -128,7 +128,9 @@ class Ecog:
 
 def drop_bad_chans(raw, q=99, voltage_threshold=500e-6, n_std=5):
     """
-    Bad channel removal
+    Automatic bad channel removal from standard deviation, percentile
+    voltage values and removing physiological channels that are not
+    rereferenced
     """
     raw = mark_physio_chan(raw)
     raw = detect_std_outliers(raw, n_std=n_std)
@@ -257,7 +259,7 @@ class Hfb:
         
         for band in bands:
             # extract band specific envelope
-            envelope = self.extract_envelope(raw)
+            envelope = self.extract_envelope(raw, band)
         # hfb is weighted average of bands specific envelope over high gamma
             env_norm = self.mean_normalise(envelope)
             hfb += env_norm
@@ -295,7 +297,7 @@ class Hfb:
         bands = [self.l_freq + i * self.band_size for i in range(0, self.nband)]
         return bands
 
-    def extract_envelope(self, raw):
+    def extract_envelope(self, raw, band):
         """
         Extract the envelope of a bandpass signal. The filter is constructed 
         using MNE python filter function. Hilbert transform is computed from MNE
@@ -316,7 +318,7 @@ class Hfb:
         envelope: MNE raw object
                  The envelope of the bandpass signal
         """
-        raw_band = raw.copy().filter(l_freq=self.l_freq, h_freq=self.l_freq+self.band_size,
+        raw_band = raw.copy().filter(l_freq=band, h_freq=band+self.band_size,
                                      phase=self.phase, filter_length=self.filter_length,
                                      l_trans_bandwidth= self.l_trans_bandwidth, 
                                      h_trans_bandwidth= self.h_trans_bandwidth,
@@ -344,21 +346,22 @@ class Hfb:
         return envelope_norm
 
 
-#%% Normalise with baseline, log transform and epoch hfb
+#%% Epoch data and normalise with baseline
 
 class Hfb_db(Hfb):
     """
     Class for HFB rescaling and dB transform 
     """
     def __init__(self, t_prestim=-0.5, t_postim = 1.75, baseline=None,
-                 preload=True, tmin=-0.4, tmax=-0.1, mode='logratio'):
+                 preload=True, tmin_baseline=-0.4, tmax_baseline=-0.1, 
+                 mode='logratio'):
         super().__init__()
         self.t_prestim = t_prestim
         self.t_postim = t_postim
         self.baseline = baseline
         self.preload = preload
-        self.tmin = tmin
-        self.tmax = tmax
+        self.tmin_baseline = tmin_baseline
+        self.tmax_baseline = tmax_baseline
         self.mode = mode
 
     def raw_to_hfb_db(self, raw):
@@ -384,6 +387,26 @@ class Hfb_db(Hfb):
         hfb_db = self.db_transform(epochs)
         return hfb_db
 
+    def hfb_to_db(self, raw):
+        """
+        Compute hfb in decibel from raw object (e.g. raw=hfb)
+        ----------
+        Parameters
+        ----------
+        raw: MNE raw object
+        t_postim: float, optional
+            post stimulus epoch stop
+        t_prestim: float
+            pre stimulus epoch starts
+        tmin: float
+            baseline starts
+        tmax: float
+            baseline stops
+        See MNE python documentation for other optional parameters
+        """
+        epochs = self.epoch_hfb(raw)
+        hfb_db = self.db_transform(epochs)
+        return hfb_db
 
     def epoch_hfb(self, hfb):
         """
@@ -402,12 +425,13 @@ class Hfb_db(Hfb):
         """
         events = epochs.events
         event_id = epochs.event_id
-        # Drop boundary event for compatibility. This does not affect results.
-        # del event_id['boundary'] 
+        # Drop boundary event for compatibility. This does not affect results
+        if 'boundary' in event_id:
+            del event_id['boundary']
         A = epochs.get_data()
         times = epochs.times
         # db transform
-        A = 10*mne.baseline.rescale(A, times,baseline=(self.tmin,self.tmax),
+        A = 10*mne.baseline.rescale(A, times, baseline=(self.tmin_baseline,self.tmax_baseline),
                                     mode=self.mode)
         # Create epoch object from array
         hfb = mne.EpochsArray(A, epochs.info, events=events, 
@@ -421,7 +445,7 @@ class Hfb_db(Hfb):
         testing, it does not differs much to MNE baseline.rescale, so might as well
         use MNE
         """
-        baseline = epochs.copy().crop(tmin=self.tmin, tmax=self.tmax) # Extract prestimulus baseline
+        baseline = epochs.copy().crop(tmin=self.tmin_baseline, tmax=self.tmax_baseline) # Extract prestimulus baseline
         baseline = baseline.get_data()
         baseline = np.mean(baseline, axis=(0,2)) # average over time and trials
         return baseline 
@@ -500,22 +524,7 @@ class Detect_visual_site:
         """
         A = hfb_db[stim_id].copy().crop(tmin=tmin, tmax=tmax).get_data()
         return A
-    
-    
-    def multiple_perm_test(self, A_postim, A_prestim, nchans):
-        A_postim = np.mean(A_postim, axis=-1)
-        A_prestim = np.mean(A_prestim, axis=-1)
-        # Initialise inflated p values
-        pval = [0]*nchans
-        tstat = [0]*nchans
-        # Compute inflated stats
-        for i in range(0,nchans):
-            tstat[i], pval[i] = nnstats.permtest_rel(A_postim[:,i], A_prestim[:,i])  
-        # Correct for multiple testing    
-        reject, pval_correct = fdrcorrection(pval, alpha=self.alpha)
-        return reject
-    
-    
+
     def multiple_wilcoxon_test(self, A_postim, A_prestim, alternative='two-sided'):
         """
         Wilcoxon test hypothesis of no difference between prestimulus and postimulus amplitude
@@ -548,25 +557,7 @@ class Detect_visual_site:
         reject, pval_correct = fdrcorrection(pval, alpha=self.alpha)
         w_test = reject, pval_correct, tstat
         return w_test
-    
-    
-    def multiple_t_test(self, A_postim, A_prestim, nchans):
-        # maybe hfb_db variablenot necessary
-        """t test for visual responsivity"""
-        A_postim = np.mean(A_postim, axis=-1)
-        A_prestim = np.mean(A_prestim, axis=-1)
-        # Initialise inflated p values
-        pval = [0]*nchans
-        tstat = [0]*nchans
-        # Compute inflated stats
-        for i in range(0,nchans):
-            tstat[i], pval[i] = spstats.ttest_ind(A_postim[:,i], A_prestim[:,i], equal_var=False)
-        # Correct for multiple testing    
-        reject, pval_correct = fdrcorrection(pval, alpha=self.alpha)
-        w_test = reject, pval_correct, tstat
-        return w_test
-    
-    
+
     def cohen_d(self, x, y):
         """
         Compute cohen d effect size between 1D array x and y
@@ -586,7 +577,6 @@ class Detect_visual_site:
         cohen = num/s
         
         return cohen
-    
     
     def compute_visual_responsivity(self, A_postim, A_prestim):
         """

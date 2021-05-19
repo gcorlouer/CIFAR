@@ -37,8 +37,9 @@ parser.add_argument("--epoch", type=bool, default=False)
 
 #%% Filtering parameters
 
-parser.add_argument("--l_freq", type=float, default=60.0)
+parser.add_argument("--l_freq", type=float, default=70.0)
 parser.add_argument("--band_size", type=float, default=20.0)
+parser.add_argument("--nband", type=float, default=5)
 parser.add_argument("--l_trans_bandwidth", type=float, default=10.0)
 parser.add_argument("--h_trans_bandwidth", type=float, default=10.0)
 parser.add_argument("--filter_length", type=str, default='auto')
