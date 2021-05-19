@@ -126,13 +126,14 @@ class Ecog:
 
 #%% Bad channel removal
 
-def drop_bad_chans(raw, q=99, voltage_threshold=500e-6):
+def drop_bad_chans(raw, q=99, voltage_threshold=500e-6, n_std=5):
     """
     Bad channel removal
     """
+    raw = mark_physio_chan(raw)
+    raw = detect_std_outliers(raw, n_std=n_std)
     outliers_chans = detect_outliers_chans(raw, q=q,
                                            voltage_threshold=voltage_threshold)
-    raw = mark_bad_chan(raw)
     raw.info['bads'].extend(outliers_chans)
     bads = raw.info['bads']
     print(f'List of all bad chans: {bads}')
@@ -168,10 +169,35 @@ def detect_outliers_chans(raw, q=99, voltage_threshold=500e-6):
     print(f'List of outliers channels: {outliers_chans}')
     return outliers_chans
 
-def mark_bad_chan(raw):
+def detect_std_outliers(raw, n_std=5):
     """
-    Add bad channels to raw.info structure. Bad channels are channels who are
-    not bipolar montaged
+    Detect channels having standard deviation n_std times larger or
+    smaller than standard deviation of all joint channels.
+    """
+    X = raw.copy().get_data()
+    std = np.std(X)
+    std_chan = np.std(X, axis=1).tolist()
+    outlier_idx = []
+    outlier_chan = []
+    nchans = X.shape[0]
+    chan_names = raw.info['ch_names']
+    for i in range(nchans):
+        if std_chan[i]>=n_std*std or std_chan[i]<=std/n_std:
+            outlier_idx.append(i)
+        else: 
+            continue
+
+    for i in outlier_idx:
+        outlier_chan.append(chan_names[i])
+        
+    raw.info['bads'].extend(outlier_chan)
+    bads = raw.info['bads']
+    return raw
+
+def mark_physio_chan(raw):
+    """
+    Add phisiological channels to raw.info structure. Phisiological channels 
+    are channels who are not bipolar rereferenced
     """
     ch_names = raw.info['ch_names']
     bad_chan = []

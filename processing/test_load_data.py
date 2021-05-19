@@ -15,7 +15,6 @@ from pathlib import Path, PurePath
 from config import args 
 
 #%% Test read data
-
 ecog = hf.Ecog(args.cohort_path, proc='bipolar_montage')
 raw = ecog.read_dataset(run=2, task='rest_baseline')
 
