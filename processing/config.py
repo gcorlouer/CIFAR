@@ -27,12 +27,9 @@ parser.add_argument("--epoch", type=bool, default=False)
 
 # Preprocessing stages:
 
-# _BP_montage_concatenated_bads_marked_raw.fif: Marked bad channels
-# _BP_montage_preprocessed_raw.fif: Bad channels removed
-# _BP_montage_HFB_raw.fif: extracted HFB
-# _BP_montage_HFB_db_raw.fif: ?
-# _hfb_db_epo.fif
-# _hfb_db_raw.fif
+# _bad_chans_removed_raw.fif Bad channels removed
+# '_hfb_extracted_raw.fif' : extracted hfb
+# '_hfb_db_epo.fif' epoched and db transformed hfb
 # _preprocessed_raw.fif
 
 #%% Filtering parameters

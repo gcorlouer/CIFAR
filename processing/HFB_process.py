@@ -453,7 +453,7 @@ class Hfb_db(Hfb):
 
 #%% Detect visually responsive populations
 
-class Detect_visual_site:
+class VisualDetector:
     """
     Detect visually responsive channels
     """
@@ -669,7 +669,7 @@ class Detect_visual_site:
 
 # %% Classify channels into Face, Place and retinotopic channels
     
-class Classify_visual_site(Detect_visual_site):
+class VisualClassifier(VisualDetector):
     """
     Classify visual channels into Face, Place and retinotopic channels
     """
@@ -691,7 +691,6 @@ class Classify_visual_site(Detect_visual_site):
         
         # Detect visual channels
         visual_chan, visual_responsivity = self.detect(hfb_db)
-        
         visual_hfb = hfb_db.copy().pick_channels(visual_chan)
         
         # Compute latency response
@@ -699,11 +698,11 @@ class Classify_visual_site(Detect_visual_site):
         
         # Classify Face and Place populations
         group, category_selectivity = self.face_place(visual_hfb, face_id, place_id, visual_chan)
+        
         # Classify retinotopic populations
         group = self.retinotopic(visual_chan, group, dfelec)
         
         # Compute peak time
-        
         peak_time = self.compute_peak_time(hfb_db, visual_chan, tmin=0.05, tmax=1.75)
         
         # Create visual_populations dictionary 

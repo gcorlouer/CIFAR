@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed May 19 10:36:49 2021
-
+This script extract HFB, epoch it, and rescale it into db for all subjects
 @author: guime
 """
 
@@ -47,5 +47,5 @@ for subject in args.cohort:
     proc_path = subject_path.joinpath('EEGLAB_datasets', args.proc)
     fname = subject + '_hfb_db_epo.fif'
     fpath = proc_path.joinpath(fname)
-    hfb.save(fpath, overwrite=True)
+    hfb_db.save(fpath, overwrite=True)
 #%% Check if plot make sense
