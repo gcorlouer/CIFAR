@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Jun 29 11:09:57 2020
-
+This script contains functions and classes to load and preprocess data.
 @author: guime
 """
 
@@ -93,7 +93,7 @@ class Ecog:
         Input
         ------
         fname: file name of the channels
-        fname= 'electrodes_info.csv', 'visual_BP_channels.csv'
+        fname= 'electrodes_info.csv', 'visual_channels.csv'
         Note:
         If user wants to read visually responsive channels from all subjects in
         one table, look up 'visual_electrodes.csv' file in /iEEG_10 path.
@@ -842,7 +842,7 @@ def category_lfp(lfp, visual_chan, tmin_crop=-0.5, tmax_crop =1.75, sfreq=500):
     ncat = len(categories)
     ts = [0]*ncat
     for idx, cat in enumerate(categories):
-        epochs, events = epoch_category(lfp, cat=cat, tmin=tmin_crop, tmax=tmax_crop)
+        epochs, events = epoch_condition(lfp, cat=cat, tmin=tmin_crop, tmax=tmax_crop)
         epochs = epochs.resample(sfreq=sfreq)
         time = epochs.times
         sorted_indices = sort_indices(epochs, visual_chan)
@@ -859,30 +859,33 @@ def hfb_to_category_time_series(hfb, visual_chan, sfreq=250, cat='Rest', tmin_cr
     Return resampled category visual time series cropped in a time interval [tmin_crop tmax_crop]
     of interest     
     """
-    hfb = category_hfb(hfb, cat=cat, tmin_crop = tmin_crop, tmax_crop=tmax_crop)
+    hfb = category_hfb(hfb, visual_chan, cat=cat, tmin_crop = tmin_crop, tmax_crop=tmax_crop)
     hfb = hfb.resample(sfreq=sfreq)
     time = hfb.times
     sorted_indices = sort_indices(hfb, visual_chan)
     X = sort_visual_chan(sorted_indices, hfb)
     return X, time
 
-def category_hfb(hfb, cat='Rest', tmin_crop = 0.5, tmax_crop=1.5) :
+def category_hfb(hfb, visual_chan, cat='Rest', tmin_crop = 0.5, tmax_crop=1.5) :
     """
     Return category visual time hfb_db cropped in a time interval [tmin_crop tmax_crop]
     of interest
     """
     hfb_db = Hfb_db()
-    epochs, events = epoch_category(hfb, cat=cat, tmin=-0.5, 
+    # Extract visual HFB
+    hfb = hfb.pick(visual_chan)
+    # Epoch condition specific HFB
+    epochs, events = epoch_condition(hfb, cat=cat, tmin=-0.5, 
                                     tmax=1.75)
     hfb = hfb_db.db_transform(epochs)
     hfb = hfb.crop(tmin=tmin_crop, tmax=tmax_crop)
     return hfb
 
-def epoch_category(raw, cat='Rest', tmin=-0.5, tmax=1.75):
+def epoch_condition(raw, cat='Rest', tmin=-0.5, tmax=1.75):
     """
-    Epoch category specific raw object (raw can be hfb or lfp)
+    Epoch condition specific raw object (raw can be hfb or lfp)
     """
-    category = Classify_visual_site()
+    condition = VisualClassifier()
     if cat == 'Rest':
         events_1 = mne.make_fixed_length_events(raw, id=32, start=100, 
                                                 stop=156, duration=2, first_samp=False, overlap=0.0)
@@ -896,10 +899,10 @@ def epoch_category(raw, cat='Rest', tmin=-0.5, tmax=1.75):
                             tmin=tmin, tmax=tmax, baseline= None, preload=True)
     else:
         stim_events, stim_events_id = mne.events_from_annotations(raw)
-        cat_id = category.extract_stim_id(stim_events_id, cat = cat)
+        condition_id = condition.extract_stim_id(stim_events_id, cat = cat)
         epochs= mne.Epochs(raw, stim_events, event_id= stim_events_id, 
                             tmin=tmin, tmax=tmax, baseline= None, preload=True)
-        epochs = epochs[cat_id]
+        epochs = epochs[condition_id]
         events = epochs.events
     return epochs, events
 

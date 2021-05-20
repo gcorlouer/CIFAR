@@ -19,10 +19,11 @@ cohort_path = Path('~','projects', 'CIFAR', 'CIFAR_data', 'iEEG_10',
 parser = argparse.ArgumentParser()
 parser.add_argument("--cohort_path", type=list, default=cohort_path)
 parser.add_argument("--cohort", type=list, default=cohort)
-parser.add_argument("--subject", type=str, default='AnRa')
+parser.add_argument("--subject", type=str, default='DiAs')
 parser.add_argument("--proc", type=str, default='preproc')
-parser.add_argument("--stage", type=str, default='_BP_montage_preprocessed_raw.fif')
+parser.add_argument("--stage", type=str, default='_hfb_extracted_raw.fif')
 parser.add_argument("--epoch", type=bool, default=False)
+parser.add_argument("--channels", type=str, default='visual_channels.csv')
 
 
 # Preprocessing stages:
@@ -31,6 +32,10 @@ parser.add_argument("--epoch", type=bool, default=False)
 # '_hfb_extracted_raw.fif' : extracted hfb
 # '_hfb_db_epo.fif' epoched and db transformed hfb
 # _preprocessed_raw.fif
+
+# Channels:
+# 'visual_channels.csv'
+# 'electrodes_info.csv'
 
 #%% Filtering parameters
 

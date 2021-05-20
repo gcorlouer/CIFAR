@@ -19,7 +19,7 @@ from scipy.io import loadmat
 
 #%%
 
-sub_id = 'JuRo'
+sub_id = 'DiAs'
 visual_chan_table = 'visual_channels_BP_montage.csv'
 proc = 'preproc' 
 categories = ['Rest', 'Face', 'Place']
