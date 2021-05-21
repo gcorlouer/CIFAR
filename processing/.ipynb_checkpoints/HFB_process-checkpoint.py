@@ -966,35 +966,35 @@ def ts_to_population_hfb(ts, visual_populations, parcellation='group'):
 
 #%% Create category time series with specific channels
 
-# def chan_specific_category_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.fif', 
-#                      sub_id='DiAs', sfreq=250, tmin_crop=0, tmax_crop=1.75):
-#     """
-#     Create category time series with specific channels
-#     """
-#     subject = Subject(sub_id)
-#     visual_populations = subject.pick_visual_chan()
-#     hfb, visual_chan = subject.load_visual_hfb(proc= proc, 
-#                                 stage= stage)
-#     hfb = hfb.pick_channels(picks)
+def chan_specific_category_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.fif', 
+                     sub_id='DiAs', sfreq=250, tmin_crop=0, tmax_crop=1.75):
+    """
+    Create category time series with specific channels
+    """
+    subject = Subject(sub_id)
+    visual_populations = subject.pick_visual_chan()
+    hfb, visual_chan = subject.load_visual_hfb(proc= proc, 
+                                stage= stage)
+    hfb = hfb.pick_channels(picks)
     
-#     ts, time = category_ts(hfb, picks, sfreq=sfreq, tmin_crop=tmin_crop,
-#                               tmax_crop=tmax_crop)
-#     return ts, time
+    ts, time = category_ts(hfb, picks, sfreq=sfreq, tmin_crop=tmin_crop,
+                              tmax_crop=tmax_crop)
+    return ts, time
 
-# def chan_specific_category_lfp(picks, proc='preproc', stage='_BP_montage_preprocessed_raw.fif', 
-#                      sub_id='DiAs', sfreq=250, tmin_crop=0, tmax_crop=1.75):
-#     """
-#     Create category specific LFP time series with specific channels
-#     """
-#     subject = Subject(sub_id)
-#     visual_populations = subject.pick_visual_chan()
-#     lfp, visual_chan = subject.load_visual_hfb(proc= proc, 
-#                                 stage= stage)
-#     lfp = lfp.pick_channels(picks)
+def chan_specific_category_lfp(picks, proc='preproc', stage='_BP_montage_preprocessed_raw.fif', 
+                     sub_id='DiAs', sfreq=250, tmin_crop=0, tmax_crop=1.75):
+    """
+    Create category specific LFP time series with specific channels
+    """
+    subject = Subject(sub_id)
+    visual_populations = subject.pick_visual_chan()
+    lfp, visual_chan = subject.load_visual_hfb(proc= proc, 
+                                stage= stage)
+    lfp = lfp.pick_channels(picks)
     
-#     ts, time = category_lfp(lfp, picks, sfreq=sfreq, tmin_crop=tmin_crop,
-#                               tmax_crop=tmax_crop)
-#     return ts, time
+    ts, time = category_lfp(lfp, picks, sfreq=sfreq, tmin_crop=tmin_crop,
+                              tmax_crop=tmax_crop)
+    return ts, time
 
 # %% Substract average event related amplitude
 
@@ -1028,28 +1028,28 @@ def plot_trials(ts, time, ichan=1, icat=1, label='raw'):
 
 #%% Cross subject functions
 
-# def cross_subject_ts(subjects, proc='preproc', stage= '_BP_montage_HFB_raw.fif',
-#                      sfreq=250, tmin_crop=0.50, tmax_crop=0.6):
-#     """
-#     Return cross subject time series in each condition
-#     ----------
-#     Parameters
-#     ----------
+def cross_subject_ts(subjects, proc='preproc', stage= '_BP_montage_HFB_raw.fif',
+                     sfreq=250, tmin_crop=0.50, tmax_crop=0.6):
+    """
+    Return cross subject time series in each condition
+    ----------
+    Parameters
+    ----------
     
-#     """
-#     ts = [0]*len(subjects)
-#     for s in range(len(subjects)):
-#         sub_id = subjects[s]  
-#         subject = Subject(name=sub_id)
-#         datadir = subject.processing_stage_path(proc=proc)
-#         visual_chan = subject.pick_visual_chan()
-#         hfb, visual_chan = subject.load_visual_hfb(proc= proc, 
-#                                 stage= stage)
-#         ts[s], time = category_ts(hfb, visual_chan, sfreq=sfreq, 
-#                                   tmin_crop=tmin_crop, tmax_crop=tmax_crop)
-#         # Beware might raise an error if shape don't match along axis !=0
-#         # cross_ts = np.concatenate(ts, axis=0)
-#     return ts, time
+    """
+    ts = [0]*len(subjects)
+    for s in range(len(subjects)):
+        sub_id = subjects[s]  
+        subject = Subject(name=sub_id)
+        datadir = subject.processing_stage_path(proc=proc)
+        visual_chan = subject.pick_visual_chan()
+        hfb, visual_chan = subject.load_visual_hfb(proc= proc, 
+                                stage= stage)
+        ts[s], time = category_ts(hfb, visual_chan, sfreq=sfreq, 
+                                  tmin_crop=tmin_crop, tmax_crop=tmax_crop)
+        # Beware might raise an error if shape don't match along axis !=0
+        # cross_ts = np.concatenate(ts, axis=0)
+    return ts, time
 
 def chanel_statistics(cross_ts, nbin=30, fontscale=1.6):
     """

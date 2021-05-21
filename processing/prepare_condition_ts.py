@@ -37,3 +37,5 @@ subject_path = args.cohort_path.joinpath(args.subject)
 proc_path = subject_path.joinpath('EEGLAB_datasets', args.proc)
 fpath = proc_path.joinpath(fname)
 savemat(fpath, ts_dict)
+
+#%%
