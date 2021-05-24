@@ -948,7 +948,7 @@ def parcellation_to_indices(visual_population, parcellation='group'):
 
 def ts_to_population_hfb(ts, visual_populations, parcellation='group'):
     """
-    Return hfb of each population from category specific time series.
+    Return hfb of each population of visual channels for each condition.
     """
     (nchan, nobs, ntrials, ncat) = ts.shape
     populations_indices = parcellation_to_indices(visual_populations,
@@ -1028,28 +1028,30 @@ def plot_trials(ts, time, ichan=1, icat=1, label='raw'):
 
 #%% Cross subject functions
 
-# def cross_subject_ts(subjects, proc='preproc', stage= '_BP_montage_HFB_raw.fif',
-#                      sfreq=250, tmin_crop=0.50, tmax_crop=0.6):
-#     """
-#     Return cross subject time series in each condition
-#     ----------
-#     Parameters
-#     ----------
+def cross_subject_ts(cohort_path, cohort, proc='preproc', 
+                     channels = 'visual_channels.csv',
+                     stage= '_hfb_extracted_raw.fif', epoch=False,
+                     sfreq=250, tmin_crop=-0.5, tmax_crop=1.5):
+    """
+    Return cross subject time series in each condition
+    ----------
+    Parameters
+    ----------
     
-#     """
-#     ts = [0]*len(subjects)
-#     for s in range(len(subjects)):
-#         sub_id = subjects[s]  
-#         subject = Subject(name=sub_id)
-#         datadir = subject.processing_stage_path(proc=proc)
-#         visual_chan = subject.pick_visual_chan()
-#         hfb, visual_chan = subject.load_visual_hfb(proc= proc, 
-#                                 stage= stage)
-#         ts[s], time = category_ts(hfb, visual_chan, sfreq=sfreq, 
-#                                   tmin_crop=tmin_crop, tmax_crop=tmax_crop)
-#         # Beware might raise an error if shape don't match along axis !=0
-#         # cross_ts = np.concatenate(ts, axis=0)
-#     return ts, time
+    """
+    ts = [0]*len(cohort)
+    for s in range(len(cohort)):
+        subject = cohort[s]  
+        ecog = Ecog(cohort_path, subject=subject, proc=proc, 
+                       stage = stage, epoch=epoch)
+        hfb = ecog.read_dataset()
+        df_visual = ecog.read_channels_info(fname=channels)
+        visual_chan = df_visual['chan_name'].to_list()
+        ts[s], time = category_ts(hfb, visual_chan, sfreq=sfreq, 
+                                  tmin_crop=tmin_crop, tmax_crop=tmax_crop)
+        # Beware might raise an error if shape don't match along axis !=0
+    cross_ts = np.concatenate(ts, axis=0)
+    return cross_ts, time
 
 def chanel_statistics(cross_ts, nbin=30, fontscale=1.6):
     """

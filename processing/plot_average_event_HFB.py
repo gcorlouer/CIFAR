@@ -1,48 +1,50 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Mar 24 10:36:50 2021
-
+Created on Mon May 24 13:57:30 2021
+This script plot grand average event related HFB
 @author: guime
 """
-
-
 
 import mne
 import pandas as pd
 import HFB_process as hf
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 import helper_functions as fun
+import seaborn as sns
 
 from pathlib import Path, PurePath
 from config import args
 from scipy.io import savemat
 
+#%%
+cohort_path = args.cohort_path
+fpath = cohort_path.joinpath('all_visual_channels.csv')
+df_all_visual_chans = pd.read_csv(fpath)
+#%% Cross subject ts
+
+cross_ts, time = hf.cross_subject_ts(args.cohort_path, args.cohort, proc=args.proc, 
+                     channels = args.channels,
+                     stage=args.stage, epoch=args.epoch,
+                     sfreq=args.sfreq, tmin_crop=args.tmin_crop, 
+                     tmax_crop=args.tmax_crop)
 
 #%%
 
-ecog = hf.Ecog(args.cohort_path, subject=args.subject, proc=args.proc, 
-                       stage = args.stage, epoch=args.epoch)
-hfb = ecog.read_dataset()
-df_visual = ecog. read_channels_info(fname=args.channels)
-visual_chan = df_visual['chan_name'].to_list()
-ts, time = hf.category_ts(hfb, visual_chan, sfreq=args.sfreq, tmin_crop=args.tmin_crop, 
-                          tmax_crop=args.tmax_crop)
-#%%
+cross_population_hfb, populations = hf.ts_to_population_hfb(cross_ts, 
+                                                            df_all_visual_chans,
+                                                            parcellation='group')
 
-population_hfb, populations = hf.ts_to_population_hfb(ts, df_visual, parcellation='group')
+#%% Plot grand average event related HFB
 
-#%%
-evok_stat = fun.compute_evok_stat(population_hfb, axis=2)
+evok_stat = fun.compute_evok_stat(cross_population_hfb, axis=2)
 max_evok = np.max(evok_stat)
 #%%
 
 step = 0.1
 alpha = 0.5
 sns.set(font_scale=1.6)
-evok = [0]*3
 color = ['k', 'b', 'g']
 cat = ['Rest', 'Face', 'Place']
 ncat = len(cat)

@@ -48,3 +48,28 @@ for subject in args.cohort:
     brain_path = subject_path.joinpath('brain')
     fpath = brain_path.joinpath(fname)
     df_visual.to_csv(fpath, index=False)
+
+#%% Make a table of all visual channels for all subjects
+
+columns = list(df_visual.columns)
+columns.append('subject_id')
+df_all_visual_chans = pd.DataFrame(columns=columns)
+
+for subject in args.cohort:
+    fname = 'visual_channels.csv'
+    subject_path = args.cohort_path.joinpath(subject)
+    brain_path = subject_path.joinpath('brain')
+    fpath = brain_path.joinpath(fname)
+    df_visual = pd.read_csv(fpath)
+    subject_id = [subject]*len(df_visual)
+    df_visual['subject_id'] = subject_id
+    df_all_visual_chans = df_all_visual_chans.append(df_visual)
+    
+path = args.cohort_path
+fname = 'all_visual_channels.csv'
+fpath = path.joinpath(fname)
+df_all_visual_chans.to_csv(fpath, index=False)
+
+#%% Read all visual chans dataframe
+
+df_all_visual_chans = pd.read_csv(fpath)
