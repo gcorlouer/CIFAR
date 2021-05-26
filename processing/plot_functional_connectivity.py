@@ -16,49 +16,64 @@ import helper_functions as fun
 import HFB_process as hf
 
 from scipy.io import loadmat
+from config import args
+from pathlib import Path, PurePath
 
-#%%
 
-sub_id = 'DiAs'
-visual_chan_table = 'visual_channels_BP_montage.csv'
-proc = 'preproc' 
-categories = ['Rest', 'Face', 'Place']
+#%% Read ROI and functional connectivity data
 
-subject = cf.Subject(name=sub_id)
-datadir = subject.processing_stage_path(proc=proc)
-fname = sub_id + 'FC.mat'
-fpath = datadir.joinpath(fname)
-visual_chan = subject.pick_visual_chan()
-fc = loadmat(fpath)
+ecog = hf.Ecog(args.cohort_path, subject=args.subject, proc=args.proc, 
+                       stage = args.stage, epoch=args.epoch)
+# Read visual channels 
+df_visual = ecog.read_channels_info(fname=args.channels)
+# Read electrodes infos
+df_electrodes = ecog.read_channels_info(fname='electrodes_info.csv')
+# Read functional and anatomical indices
+functional_indices = hf.parcellation_to_indices(df_visual, 'group', matlab=False)
+ROI_indices = hf.parcellation_to_indices(df_visual, 'DK', matlab=False)
+# Restrict anatomical areas to lateral occipital and fusiform
+ROI_indices = {'LO': ROI_indices['ctx-lh-lateraloccipital'], 
+               'Fus': ROI_indices['ctx-lh-fusiform'] }
+# List visual chans
+visual_chan = df_visual['chan_name'].to_list()
+# List conditions
+conditions = ['Rest', 'Face', 'Place']
 
-#%%
-
+# Load functional connectivity matrix
+cohort_path = args.cohort_path
+fname = args.subject + 'FC.mat'
+functional_connectivity_path = cohort_path.joinpath(args.subject, 'EEGLAB_datasets',
+                                                    args.proc, fname)
+fc = loadmat(functional_connectivity_path)
+# Granger causality matrix
 f = fc['F']
 sig_gc = fc['sig_GC']
+# Mutual information matrix
 mi = fc['MI']
 sig_mi = fc['sig_MI']
 
 #%%
+
 sns.set(font_scale=1.6)
-ncat = f.shape[2]
+n_cdt = len(conditions)
 te = np.zeros_like(f)
-
-for icat in range(ncat):
+# Convert to transfer entropy
+for icat in range(n_cdt):
     te[:,:,icat] = fun.GC_to_TE(f[:,:,icat])
-
+# Compute maximum value for scaling
 te_max = np.max(te)
 mi_max = np.max(mi)
-
+mi_max = 0.03
 fig, ax = plt.subplots(3,2)
 
-for icat in range(ncat):
-    populations = visual_chan['group']
+for icat in range(n_cdt):
+    populations = df_visual['group']
     g = sns.heatmap(mi[:,:,icat], vmin=0, vmax=mi_max, xticklabels=populations,
                     yticklabels=populations, cmap='YlOrBr', ax=ax[icat,0])
     g.set_yticklabels(g.get_yticklabels(), rotation = 90)
     ax[icat, 0].xaxis.tick_top()
     ax[0,0].set_title('Mutual information (bit)')
-    ax[icat, 0].set_ylabel(categories[icat])
+    ax[icat, 0].set_ylabel(conditions[icat])
     g = sns.heatmap(te[:,:,icat], vmin=0, vmax=te_max, xticklabels=populations,
                     yticklabels=populations, cmap='YlOrBr', ax=ax[icat,1])
     g.set_yticklabels(g.get_yticklabels(), rotation = 90)
@@ -79,3 +94,4 @@ for icat in range(ncat):
                          color='k')
             else:
                 continue
+

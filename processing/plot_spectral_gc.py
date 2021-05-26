@@ -15,51 +15,62 @@ import helper_functions as fun
 import HFB_process as hf
 
 from scipy.io import loadmat
+from config import args
+from pathlib import Path, PurePath
 
 #%% Load data
 
-sub_id = 'DiAs'
-visual_chan_table = 'visual_channels_BP_montage.csv'
-proc = 'preproc' 
-categories = ['Rest', 'Face', 'Place']
+ecog = hf.Ecog(args.cohort_path, subject=args.subject, proc=args.proc, 
+                       stage = args.stage, epoch=args.epoch)
+# Read visual channels 
+df_visual = ecog.read_channels_info(fname=args.channels)
+# Read electrodes infos
+df_electrodes = ecog.read_channels_info(fname='electrodes_info.csv')
+# Read functional and anatomical indices
+functional_indices = hf.parcellation_to_indices(df_visual, 'group', matlab=False)
+roi_idx = hf.parcellation_to_indices(df_visual, 'DK', matlab=False)
+# Restrict anatomical areas to lateral occipital and fusiform
+roi_idx = {'LO': roi_idx['ctx-lh-lateraloccipital'], 
+               'Fus': roi_idx['ctx-lh-fusiform'] }
+# List visual chans
+visual_chan = df_visual['chan_name'].to_list()
+# List conditions
+conditions = ['Rest', 'Face', 'Place']
 
-subject = cf.Subject(name=sub_id)
-datadir = subject.processing_stage_path(proc=proc)
-fname = sub_id + 'spectral_GC.mat'
-fpath = datadir.joinpath(fname)
-visual_chan = subject.pick_visual_chan()
-sgc = loadmat(fpath)
-fbin = 1024
-sfreq = 100
+# Load spectral granger causality
+cohort_path = args.cohort_path
+fname = args.subject + 'spectral_GC.mat'
+spectral_gc_path = cohort_path.joinpath(args.subject, 'EEGLAB_datasets',
+                                                    args.proc, fname)
+sgc = loadmat(spectral_gc_path)
+nfreq = args.nfreq
+sfreq = args.sfreq
 f = sgc['f']
-(nchan, nchan, nfreq, ncat) = f.shape
-#%% Average over specific groups of channels
+(nchan, nchan, nfreq, n_cdt) = f.shape
 
-group_indices = hf.parcellation_to_indices(visual_chan, parcellation='group')
-npop = len(group_indices)
-f_group = np.zeros((npop, npop, nfreq, ncat))
-visual_populations = list(group_indices.keys())
-for i in range(npop):
-    for j in range(npop):
-        pop_i = visual_populations[i]
-        ipop = group_indices[pop_i]
-        pop_j = visual_populations[j]
-        jpop = group_indices[pop_j]
-        f_sub = np.take(f, indices=ipop, axis=0)
-        f_sub =  np.take(f_sub, indices = jpop, axis=1)
-        f_group[i, j,:,:] = np.average(f_sub, axis=(0,1))
-        
+#%%
+
+roi = list(roi_idx.keys())
+n_roi = len(roi)
+for i in range(n_roi):
+    for j in range(n_roi):
+        source_idx = roi_idx[roi[j]]
+        target_idx = roi_idx[roi[i]]
+        f_roi = np.take(f, indices=target_idx, axis=0)
+        f_roi =  np.take(f_roi, indices = source_idx, axis=1)
+        f_roi[i, j,:,:] = np.average(f_roi, axis=(0,1))
+
 #%% Plot
 sns.set(font_scale=1.5)
-freq_step = sfreq/(2*(fbin+1))
+freq_step = sfreq/(2*(nfreq+1))
 freqs = np.arange(0, sfreq/2, freq_step)
-figure, ax =plt.subplots(npop,npop, sharex=True, sharey=True)
-for c in range(ncat):
-    for i in range(npop):
-        for j in range(npop):
-            ax[i,j].plot(freqs, f_group[i,j,:,c], label = f'{categories[c]}')
+figure, ax =plt.subplots(n_roi, n_roi, sharex=True, sharey=True)
+for c in range(n_cdt):
+    for i in range(n_roi):
+        for j in range(n_roi):
+            ax[i,j].plot(freqs, f_roi[i,j,:,c], label = f'{conditions[c]}')
             ax[i,j].set_ylim(top=0.01)
-            ax[i,j].text(x=40, y=0.005, s=f'{visual_populations[j]} -> {visual_populations[i]}')
+            ax[i,j].text(x=40, y=0.005, s=f'{roi[j]} -> {roi[i]}')
 
 ax[1,0].set_ylabel('Spectral GC')
 ax[2,1].set_xlabel('Frequency (Hz)')

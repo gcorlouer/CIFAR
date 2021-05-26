@@ -198,7 +198,7 @@ def detect_std_outliers(raw, n_std=5):
 
 def mark_physio_chan(raw):
     """
-    Add phisiological channels to raw.info structure. Phisiological channels 
+    Add phisiological channels to bad channels. Phisiological channels 
     are channels who are not bipolar rereferenced
     """
     ch_names = raw.info['ch_names']
@@ -929,7 +929,7 @@ def sort_indices(hfb, visual_chan):
         sorted_indices[idx] = visual_chan.index(chan)
     return sorted_indices
 
-def parcellation_to_indices(visual_population, parcellation='group'):
+def parcellation_to_indices(visual_population, parcellation='group', matlab=True):
     """
     Return indices of channels from a given population
     parcellation: group (default, functional), DK (anatomical)
@@ -938,10 +938,11 @@ def parcellation_to_indices(visual_population, parcellation='group'):
     group_indices = dict.fromkeys(group)
     for key in group:
        group_indices[key] = visual_population.loc[visual_population[parcellation]== key].index.to_list()
-    if parcellation == 'DK': # adapt indexing for matlab
+    if matlab == True: # adapt indexing for matlab
+        print("Adapt indexing to matlab format")
         for key in group:
             for i in range(len(group_indices[key])):
-                group_indices[key][i] = group_indices[key][i]
+                group_indices[key][i] = group_indices[key][i] + 1
     return group_indices
 
 #%% Return population specifc hfb
