@@ -43,7 +43,7 @@ ts, time = hf.category_ts(hfb, visual_chan, sfreq=args.sfreq, tmin_crop=args.tmi
 
 ts_dict = {'data': ts, 'sfreq': args.sfreq, 'time': time, 'sub_id': args.subject, 
            'ROI_indices': ROI_indices, 'functional_indices': functional_indices}
-fname = args.subject + '_ts_visual_test.mat'
+fname = args.subject + '_ts_visual.mat'
 subject_path = args.cohort_path.joinpath(args.subject)
 proc_path = subject_path.joinpath('EEGLAB_datasets', args.proc)
 fpath = proc_path.joinpath(fname)

@@ -78,7 +78,11 @@ parser.add_argument("--tmax_crop", type=float, default=1.5)
 #%% Functional connectivity parameters
 
 parser.add_argument("--nfreq", type=float, default=1024)
+parser.add_argument("--roi", type=str, default="anatomical")
 
+# Types of roi:
+# functional
+# anatomical
 
 #%%
 

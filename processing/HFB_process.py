@@ -965,6 +965,140 @@ def ts_to_population_hfb(ts, visual_populations, parcellation='group'):
     populations = list(populations)
     return population_hfb, populations
 
+#%% Plot functional connectivity
+
+def plot_functional_connectivity(fc, df_visual, sfreq=100, te_max=2, 
+                                 mi_max=0.3,rotation=90, tau_x=0.5, tau_y=0.8, 
+                                 font_scale=1.6):
+    """
+    This function plot mutual information and transfer entropy matrices 
+    as heatmaps
+    
+    tau_x: translattion parameter for x coordinate of statistical significance
+    tau_y: translattion parameter for y coordinate of statistical significance
+    rotation: rotation of xticks and yticks labels
+    te_max : maximum value for TE scale
+    mi_max: maximum value for MI scale
+    """
+    # Granger causality matrix
+    f = fc['F']
+    sig_gc = fc['sig_GC']
+    # Mutual information matrix
+    mi = fc['MI']
+    sig_mi = fc['sig_MI']
+    # Conditions
+    conditions = ['Rest', 'Face', 'Place']
+    n_cdt = len(conditions)
+    # Convert to transfer entropy
+    te = np.zeros_like(f)
+    for icat in range(n_cdt):
+        te[:,:,icat] = GC_to_TE(f[:,:,icat], sfreq=sfreq)
+    # Plot TE and MI as heatmap
+    sns.set(font_scale=1.6)
+    fig, ax = plt.subplots(3,2)
+    for icat in range(n_cdt):
+        populations = df_visual['group']
+        g = sns.heatmap(mi[:,:,icat], vmin=0, vmax=mi_max, xticklabels=populations,
+                        yticklabels=populations, cmap='YlOrBr', ax=ax[icat,0])
+        g.set_yticklabels(g.get_yticklabels(), rotation = rotation)
+        # Position xticks on top of heatmap
+        ax[icat, 0].xaxis.tick_top()
+        ax[0,0].set_title('Mutual information (bit)')
+        ax[icat, 0].set_ylabel(conditions[icat])
+        g = sns.heatmap(te[:,:,icat], vmin=0, vmax=te_max, xticklabels=populations,
+                        yticklabels=populations, cmap='YlOrBr', ax=ax[icat,1])
+        g.set_yticklabels(g.get_yticklabels(), rotation = rotation)
+        ax[icat, 1].xaxis.tick_top()
+        ax[icat, 1].set_ylabel('Target')
+        ax[0,1].set_title('Transfer entropy (bit/s)')
+        # Plot statistical significant entries
+        for y in range(f.shape[0]):
+            for x in range(f.shape[1]):
+                if sig_mi[y,x,icat] == 1:
+                    ax[icat,0].text(x + tau_x, y + tau_y, '*',
+                             horizontalalignment='center', verticalalignment='center',
+                             color='k')
+                else:
+                    continue
+                if sig_gc[y,x,icat] == 1:
+                    ax[icat,1].text(x + tau_x, y + tau_y, '*',
+                             horizontalalignment='center', verticalalignment='center',
+                             color='k')
+                else:
+                    continue
+
+def GC_to_TE(f, sfreq=250):
+    """
+    Convert GC to transfer entropy
+    """
+    sample_to_bits = 1/np.log(2)
+    te = 1/2*sample_to_bits*sfreq*f
+    return te
+
+#%% Spectral granger causality
+
+def spcgc_to_smvgc(f, roi_idx):
+    """
+    Average pairwise conditional spectral GC over ROI
+    ---------
+    f: array of pairwise conditional spectral GC
+    roi_idx: dictionary containing indices of channels belonging to specific
+    ROI
+    """
+    (nchan, nchan, nfreq, n_cdt) = f.shape
+    roi = list(roi_idx.keys())
+    n_roi = len(roi)
+    f_roi = np.zeros((n_roi, n_roi, nfreq, n_cdt))
+    for i in range(n_roi):
+        for j in range(n_roi):
+            source_idx = roi_idx[roi[j]]
+            target_idx = roi_idx[roi[i]]
+            f_subarray = np.take(f, indices=target_idx, axis=0)
+            f_subarray =  np.take(f_subarray, indices = source_idx, axis=1)
+            f_roi[i, j,:,:] = np.average(f_subarray, axis=(0,1))
+    return f_roi
+
+
+def read_roi(df_visual, roi="functional"):
+    """
+    Read indices of channels belong to specific 
+    anatomical or functional ROI
+    """
+    functional_idx = parcellation_to_indices(df_visual, 'group', matlab=False)
+    anatomical_idx = parcellation_to_indices(df_visual, 'DK', matlab=False)
+    if roi=="functional":
+        roi_idx = functional_idx
+    else:
+        roi_idx = anatomical_idx
+        roi_idx = {'LO': roi_idx['ctx-lh-lateraloccipital'], 
+               'Fus': roi_idx['ctx-lh-fusiform'] }
+    return roi_idx
+
+def plot_smvgc(f_roi, roi_idx, sfreq=250, x=40, y=0.01, font_scale=1.5):
+    """
+    This function plot spectral pairwise conditional GC averaged over ROI
+    
+    x,y: coordinate of text
+    """
+    conditions = ['Rest', 'Face', 'Place']
+    (n_roi, n_roi, nfreq, n_cdt) = f_roi.shape
+    roi = list(roi_idx.keys())
+    sns.set(font_scale=font_scale)
+    freq_step = sfreq/(2*(nfreq))
+    freqs = np.arange(0, sfreq/2, freq_step)
+    figure, ax =plt.subplots(n_roi, n_roi, sharex=True, sharey=True)
+    for c in range(n_cdt):
+        for i in range(n_roi):
+            for j in range(n_roi):
+                ax[i,j].plot(freqs, f_roi[i,j,:,c], label = f'{conditions[c]}')
+                ax[i,j].text(x=x, y=y, s=f'{roi[j]} -> {roi[i]}')
+                ax[-1,j].set_xlabel('Frequency (Hz)')
+                ax[i, 0].set_ylabel('Spectral GC')
+    # Legend the color-condition correspondance
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
+
 #%% Create category time series with specific channels
 
 # def chan_specific_category_ts(picks, proc='preproc', stage='_BP_montage_HFB_raw.fif', 
@@ -1018,7 +1152,7 @@ def substract_AERA(ts, axis=2):
 
 def plot_trials(ts, time, ichan=1, icat=1, label='raw'):
     """
-    Plot individual trials of a single channel.
+    Plot all individual trials of a single channel ichan
     """
     sns.set()
     ntrials = ts.shape[2]
