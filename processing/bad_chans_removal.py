@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue May 18 09:33:20 2021
-This script remove bad channels for all subjects
+This script remove bad channels for all subjects and concatenate ieeg dataset
 @author: guime
 """
 
